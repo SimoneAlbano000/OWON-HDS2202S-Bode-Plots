@@ -1,15 +1,28 @@
 # Writte by Simone Albano on 15/10/2023
 # Bode plot implementation for the handheld oscilloscope OWON HDS2202S
 
+"""
+Compile:
+1) pyinstaller HDS2202S.py
+2) pyinstaller -F HDS2202S.py
+"""
+
 import usb.core
 import usb.util
 import numpy as np
 import matplotlib.pyplot as plot
 from scipy.interpolate import UnivariateSpline
 import scipy.optimize as optimize
+import dearpygui.dearpygui as dpg
 import sys
 import os
 import time
+
+# -- gui settings --- ---------------------------------------------
+dpg.create_context()
+dpg.create_viewport()
+dpg.setup_dearpygui()
+
 
 # --- user variables --- ------------------------------------------
 channel_out = 'CH2'
@@ -18,6 +31,8 @@ CH1_probe_attenuation_ratio = '1X' # 1X or 10X, remember to change the swich on 
 CH2_probe_attenuation_ratio = '1X' # 1X or 10X, remember to change the swich on the probe!
 CH1_coupling = 'AC' # AC or DC coupling (for Bode plots use AC coupling!)
 CH2_coupling = 'AC' # AC or DC coupling (for Bode plots use AC coupling!)
+Sample_command = 'SAMPle' # sample algorithm = SAMPle/PEAK
+DEPMEM = '8K' # memory depth of the oscilloscope
 waveform_amplitude_V = 5 # pk-pk
 AWG_output_impedance = 'ON' # OFF = 50 ohm = the output voltage will be doubled!, ON = High Z = the output voltage will not be modified
 #    0       1      2      3      4      5      6      7      8
@@ -231,10 +246,10 @@ print('Channel 2 probe attenuation ratio: ' + oscilloscope_query(':{CH}:PROBe?'.
 # turn on frequency and amplitude pk-pk mesurements
 oscilloscope_query(':MEASurement:DISPlay ON')
 # set acquire mode
-oscilloscope_query(':ACQuire:MODE SAMPle')
+oscilloscope_query(':ACQuire:MODE {}'.format(Sample_command))
 print('Acquisition mode: ' + oscilloscope_query(':ACQuire:MODE?').upper())
 # set memory depth
-oscilloscope_query(':ACQuire:DEPMEM 8K')
+oscilloscope_query(':ACQuire:DEPMEM {}'.format(DEPMEM))
 print('Memory depth: ' + oscilloscope_query(':ACQuire:DEPMEM?').upper())
 # set the trigger to rising edge, VERY IMPORTANT!
 
