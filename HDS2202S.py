@@ -68,7 +68,8 @@ elif CH2_probe_attenuation_ratio == '10X':
 oscilloscope = usb.core.find(idVendor=0x5345, idProduct=0x1234)
 
 if oscilloscope is None:
-    raise ValueError('HDS2202S not found')
+    input('HDS2202S not found, press any key to continue...')
+    exit()
 else:
     oscilloscope.set_configuration()
     # get an endpoint instance
