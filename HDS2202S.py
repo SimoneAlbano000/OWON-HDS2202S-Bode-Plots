@@ -7,6 +7,8 @@ import numpy as np
 import matplotlib.pyplot as plot
 from scipy.interpolate import UnivariateSpline
 import scipy.optimize as optimize
+import sys
+import os
 import time
 
 # --- user variables --- ------------------------------------------
@@ -69,7 +71,7 @@ oscilloscope = usb.core.find(idVendor=0x5345, idProduct=0x1234)
 
 if oscilloscope is None:
     input('HDS2202S not found, press any key to continue...')
-    exit()
+    sys.exit(1)
 else:
     oscilloscope.set_configuration()
     # get an endpoint instance
