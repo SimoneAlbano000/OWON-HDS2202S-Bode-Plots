@@ -18,17 +18,7 @@ import sys
 import os
 import time
 
-# -- gui settings --- ---------------------------------------------
-dpg.create_context()
-dpg.create_viewport()
-dpg.setup_dearpygui()
-
-
 # --- user variables --- ------------------------------------------
-channel_out = 'CH2'
-channel_in = 'CH1'
-CH1_probe_attenuation_ratio = '1X' # 1X or 10X, remember to change the swich on the probe!
-CH2_probe_attenuation_ratio = '1X' # 1X or 10X, remember to change the swich on the probe!
 CH1_coupling = 'AC' # AC or DC coupling (for Bode plots use AC coupling!)
 CH2_coupling = 'AC' # AC or DC coupling (for Bode plots use AC coupling!)
 Sample_command = 'SAMPle' # sample algorithm = SAMPle/PEAK
@@ -44,6 +34,9 @@ spline_points = 1000000
 # --- end user variables --- --------------------------------------
 
 # --- system variables --- ----------------------------------------
+available_channels = ['CH1', 'CH2'] # channels names
+probes_attenuation_ratio = ['1X', '10X'] # probe attenuation ratio coefficient
+
 time_bases_commands = ['2.0ns', '5.0ns', '10.0ns', '20.0ns', '50.0ns', '100ns', '200ns', '500ns', '1.0us', '2.0us', '5.0us', '10us', '20us', '50us', '100us', '200us', '500us', '1.0ms', '2.0ms', '5.0ms', '10ms', '20ms', '50ms', '100ms', '200ms', '500ms', '1.0s', '2.0s', '5.0s', '10s', '20s', '50s', '100s', '200s', '500s', '1000s']
 time_bases_values = [0.000000002, 0.000000005, 0.00000001, 0.00000002, 0.00000005, 0.0000001, 0.0000002, 0.0000005, 0.000001, 0.000002, 0.000005, 0.00001, 0.00002, 0.00005, 0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
 amplitude_scales_commands = ['100V', '50V', '10.0V', '5.00V', '2.00V', '1.00V', '500mV', '200mV', '100mV', '50.0mV', '20.0mV', '10.0mV']
@@ -65,6 +58,34 @@ gain_linear = []
 gain_dB = []
 phase_radiant = []
 phase_degree = []
+# --- end system variables --- ------------------------------------
+
+# -- gui settings --- ---------------------------------------------
+dpg.create_context()
+dpg.create_viewport(title='HDS2202S Magnitude/Phase Bode Plotter', width=500, height=500)
+dpg.setup_dearpygui()
+
+with dpg.window(tag='main', width=100, height=100):
+    dpg.add_combo(tag='CH_IN', items=available_channels, label='Input Channel', default_value=available_channels[0], width=100)
+    dpg.add_combo(tag='CH_OUT', items=available_channels, label='Output Channel', default_value=available_channels[1], width=100)
+    dpg.add_combo(tag='CH1_ATTENUATION_RATIO', items=probes_attenuation_ratio, label='Channel 1 Probe attenuation ratio', default_value=probes_attenuation_ratio[0], width=100)
+    dpg.add_combo(tag='CH2_ATTENUATION_RATIO', items=probes_attenuation_ratio, label='Channel 2 Probe attenuation ratio', default_value=probes_attenuation_ratio[0], width=100)
+
+dpg.show_viewport()
+dpg.set_primary_window('main', True)
+
+while dpg.is_dearpygui_running():
+    # create all the system variables
+    channel_in = dpg.get_value(item='CH_IN')
+    channel_out = dpg.get_value(item='CH_OUT')
+    CH1_probe_attenuation_ratio = dpg.get_value(item='CH1_ATTENUATION_RATIO')
+    CH2_probe_attenuation_ratio = dpg.get_value(item='CH2_ATTENUATION_RATIO')
+
+    # you can manually stop by using stop_dearpygui()
+    dpg.render_dearpygui_frame()
+
+dpg.destroy_context()
+# --- end gui settings --- ----------------------------------------
 
 # limit the amplitude_scales based on the choosen probe_attenuation_value (see datasheet for allowed values)
 if CH1_probe_attenuation_ratio == '1X':
