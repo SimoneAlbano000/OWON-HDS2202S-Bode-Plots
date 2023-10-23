@@ -18,13 +18,13 @@ pip install pyusb numpy matplotlib scipy
 
 # RC Low Pass filter:
 The value of the component are R = 470Ω and C = 0.1μF 
-The theoretical pole frequency is given by the formula: $`f_{p} =\frac{1}{2\pi RC}`$
+The theoretical pole frequency is given by the formula: $`f_{p} =\frac{1}{2\pi RC} = 3.386kHz`$
 
 ![BodePlot_low-pass-filter-470ohm-0 1uF_1X_1X_100Hz-1MHz](https://github.com/SimoneAlbano000/OWON-HDS2202S-Bode-Plots/assets/36369471/9b57cb8c-e8a0-4f9c-8df7-39931c7174d0)
 
 # RC High Pass filter:
 The value of the component are R = 470Ω and C = 0.1μF 
-The theoretical pole frequency is given by the formula: $`f_{p} =\frac{1}{2\pi RC}`$
+The theoretical pole frequency is given by the formula: $`f_{p} =\frac{1}{2\pi RC} = 3.386kHz`$
 
 ![BodePlot_high-pass-filter-470ohm-0 1uF_1X_1X_100Hz-1MHz](https://github.com/SimoneAlbano000/OWON-HDS2202S-Bode-Plots/assets/36369471/dc13d212-908a-488a-bada-2cbe9bd00fc5)
 
