@@ -32,7 +32,9 @@ The theoretical pole frequency is given by the formula: $`f_{p} =\frac{1}{2\pi R
 In this particular example we can appreciate the difference between an LTSpice simulation of the circuit and a real Frequency Response Analysis. The difference lies in the behaviour of the capacitor C2 at high frequencies, where it's parasitic series inductance prevails over the desired capacitive proprierties.
 
 LTSpice AC Analysis:
+
 ![Bodeplot_bandpass-filter_1X_1X_maybe_parasitic_sym](https://github.com/SimoneAlbano000/OWON-HDS2202S-Bode-Plots/assets/36369471/8114cea8-ef20-4e33-b444-006ed3f50fd8)
 
 OWON HDS2202S Analysis:
+
 ![Bodeplot_bandpass-filter_1X_1X_maybe_parasitic](https://github.com/SimoneAlbano000/OWON-HDS2202S-Bode-Plots/assets/36369471/c1848be0-f084-42d0-ba1e-a47f3d93264e)
