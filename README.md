@@ -38,3 +38,7 @@ LTSpice AC Analysis:
 OWON HDS2202S Analysis:
 
 ![Bodeplot_bandpass-filter_1X_1X_maybe_parasitic](https://github.com/SimoneAlbano000/OWON-HDS2202S-Bode-Plots/assets/36369471/c1848be0-f084-42d0-ba1e-a47f3d93264e)
+
+```
+Executable build with PyInstaller 6.1.0
+```
