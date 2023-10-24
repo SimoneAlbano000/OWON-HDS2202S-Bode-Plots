@@ -14,7 +14,6 @@ import matplotlib.pyplot as plot
 from scipy.interpolate import UnivariateSpline
 import scipy.optimize as optimize
 import dearpygui.dearpygui as dpg
-from scipy import *
 import sys
 import os
 import time
