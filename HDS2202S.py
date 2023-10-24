@@ -26,6 +26,7 @@ channels_coupling_mode = ['AC', 'DC'] # AC or DC coupling (for Bode plots use AC
 sample_modes = ['SAMPle', 'PEAK'] # SAMPle mode is preferred
 memory_depth_modes = ['4K', '8K']
 AWG_output_impedance_modes = ['ON', 'OFF']
+plot_win_settings = ['Same', 'Separate']
 
 time_bases_commands = ['2.0ns', '5.0ns', '10.0ns', '20.0ns', '50.0ns', '100ns', '200ns', '500ns', '1.0us', '2.0us', '5.0us', '10us', '20us', '50us', '100us', '200us', '500us', '1.0ms', '2.0ms', '5.0ms', '10ms', '20ms', '50ms', '100ms', '200ms', '500ms', '1.0s', '2.0s', '5.0s', '10s', '20s', '50s', '100s', '200s', '500s', '1000s']
 time_bases_values = [0.000000002, 0.000000005, 0.00000001, 0.00000002, 0.00000005, 0.0000001, 0.0000002, 0.0000005, 0.000001, 0.000002, 0.000005, 0.00001, 0.00002, 0.00005, 0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
@@ -360,7 +361,7 @@ def fit_sine(x, y, frequency, h_scale):
 
 # -- gui settings --- ---------------------------------------------
 dpg.create_context()
-dpg.create_viewport(title='HDS2202S Magnitude/Phase Bode Plotter', width=500, height=675)
+dpg.create_viewport(title='HDS2202S Magnitude/Phase Bode Plotter', width=500, height=700, resizable=False)
 dpg.setup_dearpygui()
 with dpg.window(tag='main', width=100, height=100):
     dpg.add_text("Oscilloscope settings:")
@@ -380,7 +381,7 @@ with dpg.window(tag='main', width=100, height=100):
     dpg.add_combo(tag='START_DEC', items=decades_list_string, label='Start frquency', default_value=decades_list_string[3], width=100)
     dpg.add_combo(tag='STOP_DEC', items=decades_list_string, label='Stop frquency', default_value=decades_list_string[7], width=100)
     dpg.add_text('\nPlot settings:')
-
+    dpg.add_combo(tag='PLOT_WIN_SETTING', items=plot_win_settings, label='Windows plot disposition', default_value=plot_win_settings[1], width=100)
     dpg.add_text('\nAdvanced settings:')
     dpg.add_input_float(tag='POINT_SCALE_COEFF', label='Point scale coefficient', min_value=0, min_clamped=True, default_value=5850, width=100)
     dpg.add_input_float(tag='V_SCALE_COEFF', label='Vertical scale calibration coeff.', min_value=0, min_clamped=True, default_value=0.25, width=100)
@@ -414,6 +415,8 @@ while dpg.is_dearpygui_running():
     horizontal_scaling_factor = dpg.get_value(item='H_SCALE_COEFF') # used for optimal horizontal scale calibration
     read_delay_ms = dpg.get_value(item='OSCILL_TIMEOUT')
     sample_delay_s = dpg.get_value(item='CODE_EXEC_PAUSE')
+    # plot parameters
+    plot_win_disposition = dpg.get_value(item='PLOT_WIN_SETTING')
 
     # limit the amplitude_scales based on the choosen probe_attenuation_value (see datasheet for allowed values)
     if CH1_probe_attenuation_ratio == '1X':
