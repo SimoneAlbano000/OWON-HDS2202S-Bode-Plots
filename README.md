@@ -3,7 +3,7 @@ The following utility written in Python adds the Bode Plot/Frequency Response ca
 
 ## Required packages:
 ```
-pip install pyusb numpy matplotlib scipy
+pip install pyusb numpy matplotlib scipy dearpygui
 ```
 ## Utility usage and oscilloscope setup
 - Connect the oscilloscope to the PC using the included usb cable.
