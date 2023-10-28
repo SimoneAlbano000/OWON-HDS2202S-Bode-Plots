@@ -74,7 +74,7 @@ global oscilloscope_IN
 win_vertical_border = 19
 win_horizontal_border = 15
 
-main_window_height = 745
+main_window_height = 800
 main_window_width = 1200
 setting_window_height = main_window_height
 setting_window_width = 400
@@ -244,7 +244,6 @@ def search_oscilloscope():
         # print(oscilloscope_OUT)
 
         # call the oscilloscope setup function
-        dpg.configure_item(item='START_MEASURE', enabled=True)
         setup_oscilloscope()
 
 def setup_oscilloscope():
@@ -299,6 +298,8 @@ def setup_oscilloscope():
     oscilloscope_write(':{CH}:DISPlay ON'.format(CH = 'CH2'))
     oscilloscope_write(':CHANnel ON')
     AWG_set_frequency(decades_list[start_decade]) # reduce start-up time)
+    # enable mesurement button
+    dpg.configure_item(item='START_MEASURE', enabled=True)
 
 def start_mesurement():
     # clear all the plots
@@ -331,6 +332,8 @@ def start_mesurement():
     dpg.configure_item(item='CODE_EXEC_PAUSE', enabled=False)
     dpg.configure_item(item='PLOT_WIN_SETTING', enabled=False)
     dpg.configure_item(item='WIN_THEME', enabled=False)
+    dpg.configure_item(item='SEARCH_OSCILLOSCOPE', enabled=False)
+    dpg.configure_item(item='START_MEASURE', enabled=False)
     
     # clear all the data containers
     raw_frequencies_range.clear()
@@ -379,6 +382,10 @@ def start_mesurement():
             Vpkpk = (Vpkpk_from_curve + Vpkpk_measured)/2
         gain_linear.append(Vpkpk)
         phase_radiant.append((fitted_waveform_param["phase"]))
+        # display the current calues in the gui
+        dpg.set_value(item='FREQ_POINT_VAL', value=(str(round(frequency, 2)) + ' Hz'))
+        dpg.set_value(item='AMP_POINT_VAL', value=(str(round(Vpkpk, 3)) + ' V'))
+        dpg.set_value(item='RAD_POINT_VAL', value=(str(round(fitted_waveform_param["phase"], 3)) + ' rad'))
         # adjust the vertical and horizontal scale based on previous waveform characteristic
         closest_v_scale_index = amplitude_scales_values.index(min(amplitude_scales_values, key=lambda x:abs(x-(Vpkpk*vertical_scaling_factor))))
         set_amplitude_scale(channel_out, amplitude_scales_commands[closest_v_scale_index])
@@ -408,6 +415,11 @@ def start_mesurement():
     dpg.configure_item(item='CODE_EXEC_PAUSE', enabled=True)
     dpg.configure_item(item='PLOT_WIN_SETTING', enabled=True)
     dpg.configure_item(item='WIN_THEME', enabled=True)
+    dpg.configure_item(item='SEARCH_OSCILLOSCOPE', enabled=True)
+    # clear the current value text boxes
+    dpg.set_value(item='FREQ_POINT_VAL', value='0 Hz')
+    dpg.set_value(item='AMP_POINT_VAL', value='0 V')
+    dpg.set_value(item='RAD_POINT_VAL', value='0 rad')
     # start post-processing
     post_processing()
 
@@ -428,18 +440,18 @@ def post_processing():
     if plot_win_disposition == 'DearPyGui':
         x_points = np.linspace(decades_list[start_decade], decades_list[stop_decade], spline_points)
         # plotting the magnitude
-        dpg.add_scatter_series(x=raw_frequencies_range, y=gain_dB, parent='MAG_Y', tag='MAG_SCATTER')
         magnitude_spline = UnivariateSpline(raw_frequencies_range, gain_dB, k = 3, s = 0)
-        dpg.add_line_series(x=x_points, y=magnitude_spline(x_points), parent='MAG_Y', tag='MAG_LINE')
+        dpg.add_line_series(x=x_points, y=magnitude_spline(x_points), parent='MAG_Y', tag='MAG_LINE', label='Interpolated waveform')
+        dpg.add_scatter_series(x=raw_frequencies_range, y=gain_dB, parent='MAG_Y', tag='MAG_SCATTER', label='{} points per decade'.format(points_per_decade))
         # fit all the axis
         dpg.set_axis_limits_auto(axis='MAG_Y')
         dpg.fit_axis_data(axis='MAG_Y')
         dpg.set_axis_limits_auto(axis='MAG_X')
         dpg.fit_axis_data(axis='MAG_X')
         # plotting the phase
-        dpg.add_scatter_series(x=raw_frequencies_range, y=phase_degree, parent='PHASE_Y', tag='PHASE_SCATTER')
         phase_spline = UnivariateSpline(raw_frequencies_range, phase_degree, k = 3, s = len(raw_frequencies_range))
-        dpg.add_line_series(x=x_points, y=phase_spline(x_points), parent='PHASE_Y', tag='PHASE_LINE')
+        dpg.add_line_series(x=x_points, y=phase_spline(x_points), parent='PHASE_Y', tag='PHASE_LINE', label='Interpolated waveform')
+        dpg.add_scatter_series(x=raw_frequencies_range, y=phase_degree, parent='PHASE_Y', tag='PHASE_SCATTER', label='{} points per decade'.format(points_per_decade))
         # fit all the axis
         dpg.set_axis_limits_auto(axis='PHASE_Y')
         dpg.fit_axis_data(axis='PHASE_Y')
@@ -456,28 +468,29 @@ def post_processing():
         magnitude.set_ylabel('Gain (dB)')
         magnitude.set_xscale('log')
         magnitude.grid(which='both')
-        magnitude.scatter(raw_frequencies_range, gain_dB, color='red', label='raw data:\n{} points per decade'.format(points_per_decade), s = 20)
         magnitude_spline = UnivariateSpline(raw_frequencies_range, gain_dB, k = 3, s = 0)
         magnitude.semilogx(x_points, magnitude_spline(x_points), color='blue', label='magnitude spline')
+        magnitude.scatter(raw_frequencies_range, gain_dB, color='red', label='raw data:\n{} points per decade'.format(points_per_decade), s = 20)
         # plotting the phase
         phase.set_title('Phase Bode plot - Frequency response')
         phase.set_xlabel('Frequency (Hz)')
         phase.set_ylabel('Degrees°')
         phase.set_xscale('log')
         phase.grid(which='both')
-        phase.scatter(raw_frequencies_range, phase_degree, color='orange',label='raw data:\n{} points per decade'.format(points_per_decade), s = 20)
         phase_spline = UnivariateSpline(raw_frequencies_range, phase_degree, k = 3, s = len(raw_frequencies_range))
         phase.semilogx(x_points, phase_spline(x_points), color='blue', label='phase spline')
-
+        phase.scatter(raw_frequencies_range, phase_degree, color='orange',label='raw data:\n{} points per decade'.format(points_per_decade), s = 20)
+        # legend settings
         magnitude.legend(loc='upper right')
         phase.legend(loc='upper right')
         figure.tight_layout()
         plot.show()
 
+"""
 def stop_exit():
     # Close all the processes and exit
     os._exit(0)
-    
+""" 
 # -- gui settings --- ---------------------------------------------
 dpg.create_context()
 
@@ -504,9 +517,7 @@ with dpg.theme(tag='Dark') as dark_theme:
         dpg.add_theme_color(dpg.mvThemeCol_ButtonActive           , (0.06 * 255, 0.53 * 255, 0.98 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_Header                 , (0.50 * 255, 0.50 * 255, 0.50 * 255, 0.31 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered          , (0.50 * 255, 0.50 * 255, 0.50 * 255, 0.80 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_HeaderActive           , (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255))      
-        dpg.add_theme_color(dpg.mvThemeCol_PlotLines              , (0.61 * 255, 0.61 * 255, 0.61 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_PlotLinesHovered       , (1.00 * 255, 0.43 * 255, 0.35 * 255, 1.00 * 255))        
+        dpg.add_theme_color(dpg.mvThemeCol_HeaderActive           , (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255))           
         dpg.add_theme_color(dpg.mvPlotCol_FrameBg                 , (1.00 * 255, 1.00 * 255, 1.00 * 255, 0.07 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_PlotBg                  , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_PlotBorder              , (0.43 * 255, 0.43 * 255, 0.50 * 255, 0.50 * 255), category=dpg.mvThemeCat_Plots)
@@ -522,7 +533,20 @@ with dpg.theme(tag='Dark') as dark_theme:
         dpg.add_theme_color(dpg.mvPlotCol_Selection               , (1.00 * 255, 0.60 * 255, 0.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Query                   , (0.00 * 255, 1.00 * 255, 0.44 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Crosshairs              , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
-        
+    
+    with dpg.theme_component(dpg.mvLineSeries):
+        dpg.add_theme_color(dpg.mvPlotCol_Line, (51, 51, 255), category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(dpg.mvPlotStyleVar_LineWeight, 3, category=dpg.mvThemeCat_Plots)
+    
+    with dpg.theme_component(dpg.mvScatterSeries):
+        dpg.add_theme_color(dpg.mvPlotCol_Line, (255, 0, 0), category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(dpg.mvPlotStyleVar_Marker, dpg.mvPlotMarker_Circle, category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 4, category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_color(dpg.mvPlotCol_MarkerOutline, (255, 0, 0), category=dpg.mvThemeCat_Plots)
+    
+    with dpg.theme_component(dpg.mvButton, enabled_state=False):
+        dpg.add_theme_color(dpg.mvThemeCol_Text, [50, 50, 50])
+
 with dpg.theme(tag='Light') as light_theme:
     with dpg.theme_component(0):
         dpg.add_theme_color(dpg.mvThemeCol_Text                   , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255))
@@ -547,8 +571,6 @@ with dpg.theme(tag='Light') as light_theme:
         dpg.add_theme_color(dpg.mvThemeCol_Header                 , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.31 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered          , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.80 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_HeaderActive           , (0.26 * 255, 0.59 * 255, 0.98 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_PlotLines              , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_PlotLinesHovered       , (1.00 * 255, 0.43 * 255, 0.35 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvPlotCol_FrameBg       , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_PlotBg        , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_PlotBorder    , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.00 * 255), category=dpg.mvThemeCat_Plots)
@@ -564,14 +586,19 @@ with dpg.theme(tag='Light') as light_theme:
         dpg.add_theme_color(dpg.mvPlotCol_Selection     , (0.82 * 255, 0.64 * 255, 0.03 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Query         , (0.00 * 255, 0.84 * 255, 0.37 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Crosshairs    , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255), category=dpg.mvThemeCat_Plots)
+    
     with dpg.theme_component(dpg.mvLineSeries):
         dpg.add_theme_color(dpg.mvPlotCol_Line, (51, 51, 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_style(dpg.mvPlotStyleVar_LineWeight, 2, category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(dpg.mvPlotStyleVar_LineWeight, 3, category=dpg.mvThemeCat_Plots)
 
     with dpg.theme_component(dpg.mvScatterSeries):
         dpg.add_theme_color(dpg.mvPlotCol_Line, (255, 0, 0), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_style(dpg.mvPlotStyleVar_Marker, dpg.mvPlotMarker_Circle, category=dpg.mvThemeCat_Plots)
         dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 4, category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_color(dpg.mvPlotCol_MarkerOutline, (255, 0, 0), category=dpg.mvThemeCat_Plots)
+
+    with dpg.theme_component(dpg.mvButton, enabled_state=False):
+        dpg.add_theme_color(dpg.mvThemeCol_Text, [150, 150, 150])
 
 with dpg.window(tag='main', width=setting_window_width , height=setting_window_height, no_resize=True, pos=(0, 0), no_move=True, no_close=True, no_collapse=True):
     dpg.add_text("Oscilloscope settings:")
@@ -594,34 +621,36 @@ with dpg.window(tag='main', width=setting_window_width , height=setting_window_h
     dpg.add_radio_button(tag='WIN_THEME', label='Window theme', items=win_theme, default_value=win_theme[1], callback=switch_theme)
     dpg.bind_theme(light_theme)
     dpg.add_text('\nAdvanced settings:')
-    dpg.add_input_int(tag='SPLINE_POINTS', label='Interpolating Spline points', min_value=1000, min_clamped=True, default_value=100000, width=100)
+    dpg.add_input_int(tag='SPLINE_POINTS', label='Interpolating Spline points', min_value=1000, min_clamped=True, default_value=10000, width=100)
     dpg.add_input_float(tag='POINT_SCALE_COEFF', label='Point scale coefficient', min_value=0, min_clamped=True, default_value=5850, width=100)
     dpg.add_input_float(tag='V_SCALE_COEFF', label='Vertical scale calibration coeff.', min_value=0, min_clamped=True, default_value=0.33, width=100)
     dpg.add_input_float(tag='H_SCALE_COEFF', label='Horizontal scale calibration coeff.', min_value=0, min_clamped=True, default_value=0.25, width=100)
     dpg.add_input_float(tag='OSCILL_TIMEOUT', label='Oscilloscope reading timeout (ms)', min_value=0, min_clamped=True, default_value=300, width=100)
     dpg.add_input_float(tag='CODE_EXEC_PAUSE', label='Commands execution delay (s)', min_value=0, min_clamped=True, default_value=0.250, width=100)
+    dpg.add_text('\nPoint-wise mesurement result:')
+    dpg.add_text('Frequency      Amplitude   Phase')
+    dpg.add_input_text(tag='FREQ_POINT_VAL', default_value='0 Hz', readonly=True, width=100, scientific=True)
+    dpg.add_input_text(tag='AMP_POINT_VAL', default_value='0 V', readonly=True, width=80, pos=(112, 688))
+    dpg.add_input_text(tag='RAD_POINT_VAL', default_value='0 rad', readonly=True, width=80, pos=(196, 688))
     dpg.add_text('\n')
     dpg.add_button(tag='SEARCH_OSCILLOSCOPE', label='Search and Setup DSO', callback=search_oscilloscope)
-    dpg.add_button(tag='START_MEASURE', label='Start mesurements', callback=start_mesurement, enabled=False, pos=(160, 655))
-    dpg.add_button(tag='EXIT_PROG', label='Stop and Exit', callback=stop_exit)
+    dpg.add_button(tag='START_MEASURE', label='Start mesurements', callback=start_mesurement, enabled=False, pos=(161, 734))
+    # dpg.add_button(tag='EXIT_PROG', label='Stop and Exit', callback=stop_exit)
 
 with dpg.window(tag='MAG_PLOT_WIN', height=plot_window_height, width=plot_window_width, pos=(setting_window_width, 0), no_close=True, no_collapse=True):
-    with dpg.plot(tag='MAG_PLOT_GRAPH', label='Magnitude Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True):
+    with dpg.plot(tag='MAG_PLOT_GRAPH', label='Magnitude Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True, anti_aliased=True, no_mouse_pos=False):
         dpg.add_plot_axis(dpg.mvXAxis, label='Frequency (Hz)', log_scale=True, tag='MAG_X')
         dpg.add_plot_axis(dpg.mvYAxis, label='Gain (dB)', tag='MAG_Y')
-        dpg.set_axis_limits_auto(axis='MAG_X')
-        dpg.set_axis_limits_auto(axis='MAG_Y')
         dpg.add_plot_legend()
-
+        
 with dpg.window(tag='PHASE_PLOT_WIN', height=plot_window_height, width=plot_window_width, pos=(setting_window_width, plot_window_height), no_close=True, no_collapse=True):
-    with dpg.plot(tag='PHASE_PLOT_GRAPH', label='Phase Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True):
+    with dpg.plot(tag='PHASE_PLOT_GRAPH', label='Phase Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True, anti_aliased=True, no_mouse_pos=False):
         dpg.add_plot_axis(dpg.mvXAxis, label='Frequency (Hz)', log_scale=True, tag='PHASE_X')
         dpg.add_plot_axis(dpg.mvYAxis, label='Phase shift (deg°)', tag='PHASE_Y')
-        dpg.set_axis_limits_auto(axis='PHASE_X')
-        dpg.set_axis_limits_auto(axis='PHASE_Y')
         dpg.add_plot_legend()
 
 dpg.create_viewport(title='HDS2202S Magnitude/Phase Bode Plotter', width=main_window_width, height=main_window_height, resizable=False, max_height=main_window_height, min_height=main_window_height, max_width=main_window_width, min_width=main_window_width)
+
 dpg.setup_dearpygui()
 dpg.show_viewport()
 
