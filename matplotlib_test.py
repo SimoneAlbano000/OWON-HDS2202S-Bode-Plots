@@ -1,31 +1,3 @@
-import dearpygui.dearpygui as dpg
-
-x = [0, 1, 2, 3, 4, 5]
-y = [0, 1, 2, 3, 4, 5]
-
-dpg.create_context()
-
-with dpg.window(label="Test"):
-    # create plot
-    with dpg.plot(label="Line Series", height=400, width=400, ):
-        # optionally create legend
-        dpg.add_plot_legend()
-
-        # REQUIRED: create x and y axes
-        dpg.add_plot_axis(dpg.mvXAxis, label="x", tag="x_axis")
-        dpg.add_plot_axis(dpg.mvYAxis, label="y", tag="y_axis")
-
-        # series belong to a y axis
-        dpg.add_line_series(x, y, label="test", parent="y_axis")
-        dpg.add_scatter_series(x, y, label="test", parent="y_axis")
-
-one = dpg.create_viewport(title='test', width=800, height=600)
-
-dpg.setup_dearpygui()
-dpg.show_viewport()
-dpg.start_dearpygui()
-dpg.destroy_context()
-
 """
 figure, (magnitude, phase) = plot.subplots(2)
 magnitude.set_xlim([decades_list[start_decade], decades_list[stop_decade]])
@@ -70,4 +42,27 @@ magnitude.legend(loc='upper right')
 phase.legend(loc='upper right')
 figure.tight_layout()
 plot.show()
+
+
+    global channel_in
+    global channel_out
+    global CH1_probe_attenuation_ratio
+    global CH2_probe_attenuation_ratio
+    global CH1_coupling
+    global CH2_coupling
+    global Sample_command
+    global DEPMEM
+    global waveform_amplitude_V
+    global AWG_output_impedance
+    global points_per_decade
+    global spline_points
+    global start_decade
+    global stop_decade
+    global point_resize_factor
+    global vertical_scaling_factor
+    global horizontal_scaling_factor
+    global read_delay_ms
+    global sample_delay_s
+    global plot_win_disposition
+
 """

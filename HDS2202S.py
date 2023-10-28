@@ -24,7 +24,29 @@ channels_coupling_mode = ['AC', 'DC'] # AC or DC coupling (for Bode plots use AC
 sample_modes = ['SAMPle', 'PEAK'] # SAMPle mode is preferred
 memory_depth_modes = ['4K', '8K']
 AWG_output_impedance_modes = ['ON', 'OFF']
-# plot_win_settings = ['Same', 'Different']
+plot_win_settings = ['DearPyGui', 'MatPlotLib']
+
+# global system variables
+global channel_in
+global channel_out
+global CH1_probe_attenuation_ratio
+global CH2_probe_attenuation_ratio
+global CH1_coupling
+global CH2_coupling
+global Sample_command
+global DEPMEM
+global waveform_amplitude_V
+global AWG_output_impedance
+global points_per_decade
+global spline_points
+global start_decade
+global stop_decade
+global point_resize_factor
+global vertical_scaling_factor
+global horizontal_scaling_factor
+global read_delay_ms
+global sample_delay_s
+global plot_win_disposition
 
 time_bases_commands = ['2.0ns', '5.0ns', '10.0ns', '20.0ns', '50.0ns', '100ns', '200ns', '500ns', '1.0us', '2.0us', '5.0us', '10us', '20us', '50us', '100us', '200us', '500us', '1.0ms', '2.0ms', '5.0ms', '10ms', '20ms', '50ms', '100ms', '200ms', '500ms', '1.0s', '2.0s', '5.0s', '10s', '20s', '50s', '100s', '200s', '500s', '1000s']
 time_bases_values = [0.000000002, 0.000000005, 0.00000001, 0.00000002, 0.00000005, 0.0000001, 0.0000002, 0.0000005, 0.000001, 0.000002, 0.000005, 0.00001, 0.00002, 0.00005, 0.0001, 0.0002, 0.0005, 0.001, 0.002, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1, 2, 5, 10, 20, 50, 100, 200, 500, 1000]
@@ -43,30 +65,28 @@ gain_dB = []
 phase_radiant = []
 phase_degree = []
 
+global oscilloscope_OUT
+global oscilloscope_IN
+
+# --- end system variables --- ------------------------------------
+
 # --- start Graphics settings --- -----------------------------------------------------
 win_vertical_border = 19
 win_horizontal_border = 15
 
-main_window_height = 800
+main_window_height = 745
 main_window_width = 1200
-setting_window_height = 800
-setting_window_width = 500
+setting_window_height = main_window_height
+setting_window_width = 400
 plot_window_height = main_window_height/2 - win_vertical_border
 plot_window_width = main_window_width - setting_window_width - win_horizontal_border
-
 win_theme = ['Dark', 'Light']
-white = (255, 255, 255)
-black = (0, 0, 0)
 
 def switch_theme():
     dpg.bind_theme(dpg.get_value('WIN_THEME'))
 
 # --- end Graphics settings --- -------------------------------------------------------
 
-global oscilloscope_OUT
-global oscilloscope_IN
-
-# --- end system variables --- ------------------------------------
 def oscilloscope_query(cmd):
     oscilloscope_OUT.write(cmd)
     result = (oscilloscope_IN.read(read_buffer_size, read_delay_ms))
@@ -156,7 +176,7 @@ def guess_phase(x, y, f, A, h_scale):
     else:
         phi = np.arccos(cos_phi)
         # check for phase sign
-        if (y.tolist())[150] <= 0:
+        if y[150] <= 0:
             return (-phi)
         else:
             return phi
@@ -281,6 +301,44 @@ def setup_oscilloscope():
     AWG_set_frequency(decades_list[start_decade]) # reduce start-up time)
 
 def start_mesurement():
+    # clear all the plots
+    try:
+        dpg.delete_item(item='MAG_SCATTER')
+        dpg.delete_item(item='MAG_LINE')
+        dpg.delete_item(item='PHASE_SCATTER')
+        dpg.delete_item(item='PHASE_LINE')
+    except:
+        pass
+    # disable all the control items
+    dpg.configure_item(item='CH_IN', enabled=False)
+    dpg.configure_item(item='CH_OUT', enabled=False)
+    dpg.configure_item(item='CH1_ATTENUATION_RATIO', enabled=False)
+    dpg.configure_item(item='CH2_ATTENUATION_RATIO', enabled=False)
+    dpg.configure_item(item='CH1_COUPLING_MODE', enabled=False)
+    dpg.configure_item(item='CH2_COUPLING_MODE', enabled=False)
+    dpg.configure_item(item='SAMPL_MODE', enabled=False)
+    dpg.configure_item(item='DEPMEM', enabled=False)
+    dpg.configure_item(item='AWG_OUT_VOLTAGE', enabled=False)
+    dpg.configure_item(item='HIGH_Z', enabled=False)
+    dpg.configure_item(item='POINTS_X_DEC', enabled=False)
+    dpg.configure_item(item='SPLINE_POINTS', enabled=False)
+    dpg.configure_item(item='START_DEC', enabled=False)
+    dpg.configure_item(item='STOP_DEC', enabled=False)
+    dpg.configure_item(item='POINT_SCALE_COEFF', enabled=False)
+    dpg.configure_item(item='V_SCALE_COEFF', enabled=False)
+    dpg.configure_item(item='H_SCALE_COEFF', enabled=False)
+    dpg.configure_item(item='OSCILL_TIMEOUT', enabled=False)
+    dpg.configure_item(item='CODE_EXEC_PAUSE', enabled=False)
+    dpg.configure_item(item='PLOT_WIN_SETTING', enabled=False)
+    dpg.configure_item(item='WIN_THEME', enabled=False)
+    
+    # clear all the data containers
+    raw_frequencies_range.clear()
+    gain_linear.clear()
+    gain_dB.clear()
+    phase_radiant.clear()
+    phase_degree.clear()
+
     # set the vertical offset of both channels to zero
     oscilloscope_write(':CH1:OFFSet 0')
     oscilloscope_write(':CH2:OFFSet 0')
@@ -328,7 +386,29 @@ def start_mesurement():
         closest_h_scale_index = time_bases_values.index(min(time_bases_values, key=lambda x:abs(x-((1/frequency)*horizontal_scaling_factor))))
         set_time_base(time_bases_commands[closest_h_scale_index])
         time.sleep(sample_delay_s)
-        # start post-processing
+    # re-enable all the control elements
+    dpg.configure_item(item='CH_IN', enabled=True)
+    dpg.configure_item(item='CH_OUT', enabled=True)
+    dpg.configure_item(item='CH1_ATTENUATION_RATIO', enabled=True)
+    dpg.configure_item(item='CH2_ATTENUATION_RATIO', enabled=True)
+    dpg.configure_item(item='CH1_COUPLING_MODE', enabled=True)
+    dpg.configure_item(item='CH2_COUPLING_MODE', enabled=True)
+    dpg.configure_item(item='SAMPL_MODE', enabled=True)
+    dpg.configure_item(item='DEPMEM', enabled=True)
+    dpg.configure_item(item='AWG_OUT_VOLTAGE', enabled=True)
+    dpg.configure_item(item='HIGH_Z', enabled=True)
+    dpg.configure_item(item='POINTS_X_DEC', enabled=True)
+    dpg.configure_item(item='SPLINE_POINTS', enabled=True)
+    dpg.configure_item(item='START_DEC', enabled=True)
+    dpg.configure_item(item='STOP_DEC', enabled=True)
+    dpg.configure_item(item='POINT_SCALE_COEFF', enabled=True)
+    dpg.configure_item(item='V_SCALE_COEFF', enabled=True)
+    dpg.configure_item(item='H_SCALE_COEFF', enabled=True)
+    dpg.configure_item(item='OSCILL_TIMEOUT', enabled=True)
+    dpg.configure_item(item='CODE_EXEC_PAUSE', enabled=True)
+    dpg.configure_item(item='PLOT_WIN_SETTING', enabled=True)
+    dpg.configure_item(item='WIN_THEME', enabled=True)
+    # start post-processing
     post_processing()
 
 def post_processing():
@@ -345,11 +425,54 @@ def post_processing():
     # print(phase_degree)
 
     # choose the disposition of the plots
-    if plot_win_disposition == 'Same':
-        pass
+    if plot_win_disposition == 'DearPyGui':
+        x_points = np.linspace(decades_list[start_decade], decades_list[stop_decade], spline_points)
+        # plotting the magnitude
+        dpg.add_scatter_series(x=raw_frequencies_range, y=gain_dB, parent='MAG_Y', tag='MAG_SCATTER')
+        magnitude_spline = UnivariateSpline(raw_frequencies_range, gain_dB, k = 3, s = 0)
+        dpg.add_line_series(x=x_points, y=magnitude_spline(x_points), parent='MAG_Y', tag='MAG_LINE')
+        # fit all the axis
+        dpg.set_axis_limits_auto(axis='MAG_Y')
+        dpg.fit_axis_data(axis='MAG_Y')
+        dpg.set_axis_limits_auto(axis='MAG_X')
+        dpg.fit_axis_data(axis='MAG_X')
+        # plotting the phase
+        dpg.add_scatter_series(x=raw_frequencies_range, y=phase_degree, parent='PHASE_Y', tag='PHASE_SCATTER')
+        phase_spline = UnivariateSpline(raw_frequencies_range, phase_degree, k = 3, s = len(raw_frequencies_range))
+        dpg.add_line_series(x=x_points, y=phase_spline(x_points), parent='PHASE_Y', tag='PHASE_LINE')
+        # fit all the axis
+        dpg.set_axis_limits_auto(axis='PHASE_Y')
+        dpg.fit_axis_data(axis='PHASE_Y')
+        dpg.set_axis_limits_auto(axis='PHASE_X')
+        dpg.fit_axis_data(axis='PHASE_X')
     else:
-        pass
-    # --- end post-processing ---
+        figure, (magnitude, phase) = plot.subplots(2)
+        magnitude.set_xlim([decades_list[start_decade], decades_list[stop_decade]])
+        phase.set_xlim([decades_list[start_decade], decades_list[stop_decade]])
+        x_points = np.linspace(decades_list[start_decade], decades_list[stop_decade], spline_points)
+        # plotting the magnitude
+        magnitude.set_title('Magnitude Bode plot - Frequency response')
+        magnitude.set_xlabel('Frequency (Hz)')
+        magnitude.set_ylabel('Gain (dB)')
+        magnitude.set_xscale('log')
+        magnitude.grid(which='both')
+        magnitude.scatter(raw_frequencies_range, gain_dB, color='red', label='raw data:\n{} points per decade'.format(points_per_decade), s = 20)
+        magnitude_spline = UnivariateSpline(raw_frequencies_range, gain_dB, k = 3, s = 0)
+        magnitude.semilogx(x_points, magnitude_spline(x_points), color='blue', label='magnitude spline')
+        # plotting the phase
+        phase.set_title('Phase Bode plot - Frequency response')
+        phase.set_xlabel('Frequency (Hz)')
+        phase.set_ylabel('Degrees°')
+        phase.set_xscale('log')
+        phase.grid(which='both')
+        phase.scatter(raw_frequencies_range, phase_degree, color='orange',label='raw data:\n{} points per decade'.format(points_per_decade), s = 20)
+        phase_spline = UnivariateSpline(raw_frequencies_range, phase_degree, k = 3, s = len(raw_frequencies_range))
+        phase.semilogx(x_points, phase_spline(x_points), color='blue', label='phase spline')
+
+        magnitude.legend(loc='upper right')
+        phase.legend(loc='upper right')
+        figure.tight_layout()
+        plot.show()
 
 def stop_exit():
     # Close all the processes and exit
@@ -363,58 +486,27 @@ with dpg.theme(tag='Dark') as dark_theme:
         dpg.add_theme_color(dpg.mvThemeCol_Text                   , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_TextDisabled           , (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_WindowBg               , (0.19 * 255, 0.19 * 255, 0.19 * 255, 0.94 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ChildBg                , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_PopupBg                , (0.08 * 255, 0.08 * 255, 0.08 * 255, 0.94 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_Border                 , (0.43 * 255, 0.43 * 255, 0.50 * 255, 0.50 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_BorderShadow           , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_FrameBg                , (0.16 * 255, 0.29 * 255, 0.48 * 255, 0.54 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered         , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.40 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive          , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.67 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TitleBg                , (0.04 * 255, 0.04 * 255, 0.04 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive          , (0.16 * 255, 0.29 * 255, 0.48 * 255, 1.00 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_FrameBg                , (0.50 * 255, 0.50 * 255, 0.50 * 255, 0.54 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered         , (0.50 * 255, 0.50 * 255, 0.50 * 255, 0.40 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive          , (0.50 * 255, 0.50 * 255, 0.50 * 255, 0.67 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_TitleBg                , (0.25 * 255, 0.25 * 255, 0.25 * 255, 1.00 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive          , (0.35 * 255, 0.35 * 255, 0.35 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed       , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.51 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_MenuBarBg              , (0.14 * 255, 0.14 * 255, 0.14 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ScrollbarBg            , (0.02 * 255, 0.02 * 255, 0.02 * 255, 0.53 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrab          , (0.31 * 255, 0.31 * 255, 0.31 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabHovered   , (0.41 * 255, 0.41 * 255, 0.41 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabActive    , (0.51 * 255, 0.51 * 255, 0.51 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_CheckMark              , (0.26 * 255, 0.59 * 255, 0.98 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_SliderGrab             , (0.24 * 255, 0.52 * 255, 0.88 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive       , (0.26 * 255, 0.59 * 255, 0.98 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_Button                 , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.40 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered          , (0.26 * 255, 0.59 * 255, 0.98 * 255, 1.00 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_Button                 , (0.50 * 255, 0.50 * 255, 0.50 * 255, 0.40 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered          , (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ButtonActive           , (0.06 * 255, 0.53 * 255, 0.98 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_Header                 , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.31 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered          , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.80 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_HeaderActive           , (0.26 * 255, 0.59 * 255, 0.98 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_Separator              , (0.43 * 255, 0.43 * 255, 0.50 * 255, 0.50 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_SeparatorHovered       , (0.10 * 255, 0.40 * 255, 0.75 * 255, 0.78 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_SeparatorActive        , (0.10 * 255, 0.40 * 255, 0.75 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ResizeGrip             , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.20 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ResizeGripHovered      , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.67 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ResizeGripActive       , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.95 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_Tab                    , (0.18 * 255, 0.35 * 255, 0.58 * 255, 0.86 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TabHovered             , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.80 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TabActive              , (0.20 * 255, 0.41 * 255, 0.68 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TabUnfocused           , (0.07 * 255, 0.10 * 255, 0.15 * 255, 0.97 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TabUnfocusedActive     , (0.14 * 255, 0.26 * 255, 0.42 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_DockingPreview         , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.70 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_DockingEmptyBg         , (0.20 * 255, 0.20 * 255, 0.20 * 255, 1.00 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_Header                 , (0.50 * 255, 0.50 * 255, 0.50 * 255, 0.31 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered          , (0.50 * 255, 0.50 * 255, 0.50 * 255, 0.80 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_HeaderActive           , (0.50 * 255, 0.50 * 255, 0.50 * 255, 1.00 * 255))      
         dpg.add_theme_color(dpg.mvThemeCol_PlotLines              , (0.61 * 255, 0.61 * 255, 0.61 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_PlotLinesHovered       , (1.00 * 255, 0.43 * 255, 0.35 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram          , (0.90 * 255, 0.70 * 255, 0.00 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_PlotHistogramHovered   , (1.00 * 255, 0.60 * 255, 0.00 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg          , (0.19 * 255, 0.19 * 255, 0.20 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableBorderStrong      , (0.31 * 255, 0.31 * 255, 0.35 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableBorderLight       , (0.23 * 255, 0.23 * 255, 0.25 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableRowBg             , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableRowBgAlt          , (1.00 * 255, 1.00 * 255, 1.00 * 255, 0.06 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TextSelectedBg         , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.35 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_DragDropTarget         , (1.00 * 255, 1.00 * 255, 0.00 * 255, 0.90 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_NavHighlight           , (0.26 * 255, 0.59 * 255, 0.98 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_NavWindowingHighlight  , (1.00 * 255, 1.00 * 255, 1.00 * 255, 0.70 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_NavWindowingDimBg      , (0.80 * 255, 0.80 * 255, 0.80 * 255, 0.20 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ModalWindowDimBg       , (0.80 * 255, 0.80 * 255, 0.80 * 255, 0.35 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_PlotLinesHovered       , (1.00 * 255, 0.43 * 255, 0.35 * 255, 1.00 * 255))        
         dpg.add_theme_color(dpg.mvPlotCol_FrameBg                 , (1.00 * 255, 1.00 * 255, 1.00 * 255, 0.07 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_PlotBg                  , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_PlotBorder              , (0.43 * 255, 0.43 * 255, 0.50 * 255, 0.50 * 255), category=dpg.mvThemeCat_Plots)
@@ -427,87 +519,36 @@ with dpg.theme(tag='Dark') as dark_theme:
         dpg.add_theme_color(dpg.mvPlotCol_XAxisGrid               , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_YAxis                   , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid               , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvPlotCol_YAxis2                  , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid2              , (1.00 * 255, 1.00 * 255, 1.00 * 255, 0.25 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvPlotCol_YAxis3                  , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid3              , (1.00 * 255, 1.00 * 255, 1.00 * 255, 0.25 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Selection               , (1.00 * 255, 0.60 * 255, 0.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Query                   , (0.00 * 255, 1.00 * 255, 0.44 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Crosshairs              , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvNodeCol_NodeBackground, (50, 50, 50, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_NodeBackgroundHovered, (75, 75, 75, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_NodeBackgroundSelected, (75, 75, 75, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_NodeOutline, (100, 100, 100, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_TitleBar, (41, 74, 122, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_TitleBarHovered, (66, 150, 250, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_TitleBarSelected, (66, 150, 250, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_Link, (61, 133, 224, 200), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_LinkHovered, (66, 150, 250, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_LinkSelected, (66, 150, 250, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_Pin, (53, 150, 250, 180), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_PinHovered, (53, 150, 250, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_BoxSelector, (61, 133, 224, 30), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_BoxSelectorOutline, (61, 133, 224, 150), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_GridBackground, (40, 40, 50, 200), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_GridLine, (200, 200, 200, 40), category=dpg.mvThemeCat_Nodes)
-
+        
 with dpg.theme(tag='Light') as light_theme:
     with dpg.theme_component(0):
         dpg.add_theme_color(dpg.mvThemeCol_Text                   , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_TextDisabled           , (0.60 * 255, 0.60 * 255, 0.60 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_WindowBg               , (0.94 * 255, 0.94 * 255, 0.94 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ChildBg                , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_PopupBg                , (1.00 * 255, 1.00 * 255, 1.00 * 255, 0.98 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_PopupBg                , (0.90 * 255, 0.90 * 255, 0.90 * 255, 0.98 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_Border                 , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.30 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_BorderShadow           , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_FrameBg                , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255))
+        dpg.add_theme_color(dpg.mvThemeCol_FrameBg                , (0.85 * 255, 0.85 * 255, 0.85 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_FrameBgHovered         , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.40 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_FrameBgActive          , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.67 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_TitleBg                , (0.96 * 255, 0.96 * 255, 0.96 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_TitleBgActive          , (0.82 * 255, 0.82 * 255, 0.82 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_TitleBgCollapsed       , (1.00 * 255, 1.00 * 255, 1.00 * 255, 0.51 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_MenuBarBg              , (0.86 * 255, 0.86 * 255, 0.86 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ScrollbarBg            , (0.98 * 255, 0.98 * 255, 0.98 * 255, 0.53 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrab          , (0.69 * 255, 0.69 * 255, 0.69 * 255, 0.80 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabHovered   , (0.49 * 255, 0.49 * 255, 0.49 * 255, 0.80 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ScrollbarGrabActive    , (0.49 * 255, 0.49 * 255, 0.49 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_CheckMark              , (0.26 * 255, 0.59 * 255, 0.98 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_SliderGrab             , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.78 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_SliderGrabActive       , (0.46 * 255, 0.54 * 255, 0.80 * 255, 0.60 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_Button                 , (0.75 * 255, 0.75 * 255, 0.75 * 255, 0.40 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ButtonHovered          , (0.26 * 255, 0.59 * 255, 0.98 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_ButtonActive           , (0.06 * 255, 0.53 * 255, 0.98 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_Header                 , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.31 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_HeaderHovered          , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.80 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_HeaderActive           , (0.26 * 255, 0.59 * 255, 0.98 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_Separator              , (0.39 * 255, 0.39 * 255, 0.39 * 255, 0.62 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_SeparatorHovered       , (0.14 * 255, 0.44 * 255, 0.80 * 255, 0.78 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_SeparatorActive        , (0.14 * 255, 0.44 * 255, 0.80 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ResizeGrip             , (0.35 * 255, 0.35 * 255, 0.35 * 255, 0.17 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ResizeGripHovered      , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.67 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ResizeGripActive       , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.95 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_Tab                    , (0.76 * 255, 0.80 * 255, 0.84 * 255, 0.93 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TabHovered             , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.80 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TabActive              , (0.60 * 255, 0.73 * 255, 0.88 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TabUnfocused           , (0.92 * 255, 0.93 * 255, 0.94 * 255, 0.99 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TabUnfocusedActive     , (0.74 * 255, 0.82 * 255, 0.91 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_DockingPreview         , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.22 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_DockingEmptyBg         , (0.20 * 255, 0.20 * 255, 0.20 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_PlotLines              , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255))
         dpg.add_theme_color(dpg.mvThemeCol_PlotLinesHovered       , (1.00 * 255, 0.43 * 255, 0.35 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_PlotHistogram          , (0.90 * 255, 0.70 * 255, 0.00 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_PlotHistogramHovered   , (1.00 * 255, 0.45 * 255, 0.00 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableHeaderBg          , (0.78 * 255, 0.87 * 255, 0.98 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableBorderStrong      , (0.57 * 255, 0.57 * 255, 0.64 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableBorderLight       , (0.68 * 255, 0.68 * 255, 0.74 * 255, 1.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableRowBg             , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.00 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TableRowBgAlt          , (0.30 * 255, 0.30 * 255, 0.30 * 255, 0.09 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_TextSelectedBg         , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.35 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_DragDropTarget         , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.95 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_NavHighlight           , (0.26 * 255, 0.59 * 255, 0.98 * 255, 0.80 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_NavWindowingHighlight  , (0.70 * 255, 0.70 * 255, 0.70 * 255, 0.70 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_NavWindowingDimBg      , (0.20 * 255, 0.20 * 255, 0.20 * 255, 0.20 * 255))
-        dpg.add_theme_color(dpg.mvThemeCol_ModalWindowDimBg       , (0.20 * 255, 0.20 * 255, 0.20 * 255, 0.35 * 255))
         dpg.add_theme_color(dpg.mvPlotCol_FrameBg       , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_PlotBg        , (1.00 * 255, 1.00 * 255, 1.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_PlotBorder    , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.00 * 255), category=dpg.mvThemeCat_Plots)
@@ -520,29 +561,17 @@ with dpg.theme(tag='Light') as light_theme:
         dpg.add_theme_color(dpg.mvPlotCol_XAxisGrid     , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_YAxis         , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid     , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvPlotCol_YAxis2        , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid2    , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvPlotCol_YAxis3        , (0.00 * 255, 0.00 * 255, 0.00 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvPlotCol_YAxisGrid3    , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Selection     , (0.82 * 255, 0.64 * 255, 0.03 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Query         , (0.00 * 255, 0.84 * 255, 0.37 * 255, 1.00 * 255), category=dpg.mvThemeCat_Plots)
         dpg.add_theme_color(dpg.mvPlotCol_Crosshairs    , (0.00 * 255, 0.00 * 255, 0.00 * 255, 0.50 * 255), category=dpg.mvThemeCat_Plots)
-        dpg.add_theme_color(dpg.mvNodeCol_NodeBackground, (240, 240, 240, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_NodeBackgroundHovered, (240, 240, 240, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_NodeBackgroundSelected, (240, 240, 240, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_NodeOutline, (100, 100, 100, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_TitleBar, (248, 248, 248, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_TitleBarHovered, (209, 209, 209, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_TitleBarSelected, (209, 209, 209, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_Link, (66, 150, 250, 100), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_LinkHovered, (66, 150, 250, 242), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_LinkSelected, (66, 150, 250, 242), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_Pin, (66, 150, 250, 160), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_PinHovered, (66, 150, 250, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_BoxSelector, (90, 170, 250, 30), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_BoxSelectorOutline, (90, 170, 250, 150), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_GridBackground, (225, 225, 225, 255), category=dpg.mvThemeCat_Nodes)
-        dpg.add_theme_color(dpg.mvNodeCol_GridLine, (180, 180, 180, 100), category=dpg.mvThemeCat_Nodes)
+    with dpg.theme_component(dpg.mvLineSeries):
+        dpg.add_theme_color(dpg.mvPlotCol_Line, (51, 51, 255), category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(dpg.mvPlotStyleVar_LineWeight, 2, category=dpg.mvThemeCat_Plots)
+
+    with dpg.theme_component(dpg.mvScatterSeries):
+        dpg.add_theme_color(dpg.mvPlotCol_Line, (255, 0, 0), category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(dpg.mvPlotStyleVar_Marker, dpg.mvPlotMarker_Circle, category=dpg.mvThemeCat_Plots)
+        dpg.add_theme_style(dpg.mvPlotStyleVar_MarkerSize, 4, category=dpg.mvThemeCat_Plots)
 
 with dpg.window(tag='main', width=setting_window_width , height=setting_window_height, no_resize=True, pos=(0, 0), no_move=True, no_close=True, no_collapse=True):
     dpg.add_text("Oscilloscope settings:")
@@ -556,13 +585,12 @@ with dpg.window(tag='main', width=setting_window_width , height=setting_window_h
     dpg.add_combo(tag='DEPMEM', items=memory_depth_modes, label='Oscilloscope Memory depth', default_value=memory_depth_modes[1], width=100)
     dpg.add_input_float(tag='AWG_OUT_VOLTAGE', label='AWG pk-pk output voltage', min_value=0, max_value=5, min_clamped=True, max_clamped=True, default_value=1, width=100)
     dpg.add_combo(tag='HIGH_Z', items=AWG_output_impedance_modes, label='AWG High output impedance', default_value=AWG_output_impedance_modes[0], width=100)
-    dpg.add_text('If the High output impedance is set to OFF\nthe Z_out = 50 Ohm and the AWG output voltage will be doubled!')
+    dpg.add_text('High output impedance = OFF -> Z_out = 50 Ohm\nThe AWG pk-pk output voltage will be doubled!')
     dpg.add_input_int(tag='POINTS_X_DEC', label='Points per decade', min_value=0, min_clamped=True, default_value=10, width=100)
     dpg.add_combo(tag='START_DEC', items=decades_list_string, label='Start frquency', default_value=decades_list_string[3], width=100)
     dpg.add_combo(tag='STOP_DEC', items=decades_list_string, label='Stop frquency', default_value=decades_list_string[7], width=100)
-    # dpg.add_text('\nPlot settings:')
-    # dpg.add_combo(tag='PLOT_WIN_SETTING', items=plot_win_settings, label='Windows plot disposition', default_value=plot_win_settings[0], width=100)
     dpg.add_text('\nGraphics setting:')
+    dpg.add_radio_button(tag='PLOT_WIN_SETTING', label='Plot Engine', items=plot_win_settings, default_value=plot_win_settings[0], pos=(75, 415))
     dpg.add_radio_button(tag='WIN_THEME', label='Window theme', items=win_theme, default_value=win_theme[1], callback=switch_theme)
     dpg.bind_theme(light_theme)
     dpg.add_text('\nAdvanced settings:')
@@ -570,23 +598,27 @@ with dpg.window(tag='main', width=setting_window_width , height=setting_window_h
     dpg.add_input_float(tag='POINT_SCALE_COEFF', label='Point scale coefficient', min_value=0, min_clamped=True, default_value=5850, width=100)
     dpg.add_input_float(tag='V_SCALE_COEFF', label='Vertical scale calibration coeff.', min_value=0, min_clamped=True, default_value=0.33, width=100)
     dpg.add_input_float(tag='H_SCALE_COEFF', label='Horizontal scale calibration coeff.', min_value=0, min_clamped=True, default_value=0.25, width=100)
-    dpg.add_input_float(tag='OSCILL_TIMEOUT', label='Oscilloscope reading timeout (ms)', min_value=0, min_clamped=True, default_value=250, width=100)
-    dpg.add_input_float(tag='CODE_EXEC_PAUSE', label='Code execution delay (s)', min_value=0, min_clamped=True, default_value=0.5, width=100)
+    dpg.add_input_float(tag='OSCILL_TIMEOUT', label='Oscilloscope reading timeout (ms)', min_value=0, min_clamped=True, default_value=300, width=100)
+    dpg.add_input_float(tag='CODE_EXEC_PAUSE', label='Commands execution delay (s)', min_value=0, min_clamped=True, default_value=0.250, width=100)
     dpg.add_text('\n')
     dpg.add_button(tag='SEARCH_OSCILLOSCOPE', label='Search and Setup DSO', callback=search_oscilloscope)
     dpg.add_button(tag='START_MEASURE', label='Start mesurements', callback=start_mesurement, enabled=False, pos=(160, 655))
     dpg.add_button(tag='EXIT_PROG', label='Stop and Exit', callback=stop_exit)
 
 with dpg.window(tag='MAG_PLOT_WIN', height=plot_window_height, width=plot_window_width, pos=(setting_window_width, 0), no_close=True, no_collapse=True):
-    with dpg.plot(tag='MAG_PLOT_GRAPH', label="Magnitude Bode Plot", height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True):
-        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency (Hz)", log_scale=True)
-        dpg.add_plot_axis(dpg.mvYAxis, label="Gain (dB)", tag="MAG_Y")
+    with dpg.plot(tag='MAG_PLOT_GRAPH', label='Magnitude Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True):
+        dpg.add_plot_axis(dpg.mvXAxis, label='Frequency (Hz)', log_scale=True, tag='MAG_X')
+        dpg.add_plot_axis(dpg.mvYAxis, label='Gain (dB)', tag='MAG_Y')
+        dpg.set_axis_limits_auto(axis='MAG_X')
+        dpg.set_axis_limits_auto(axis='MAG_Y')
         dpg.add_plot_legend()
 
 with dpg.window(tag='PHASE_PLOT_WIN', height=plot_window_height, width=plot_window_width, pos=(setting_window_width, plot_window_height), no_close=True, no_collapse=True):
-    with dpg.plot(tag='PHASE_PLOT_GRAPH', label="Phase Bode Plot", height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True):
-        dpg.add_plot_axis(dpg.mvXAxis, label="Frequency (Hz)", log_scale=True)
-        dpg.add_plot_axis(dpg.mvYAxis, label="Phase shift (deg°)", tag="PHASE_Y")
+    with dpg.plot(tag='PHASE_PLOT_GRAPH', label='Phase Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True):
+        dpg.add_plot_axis(dpg.mvXAxis, label='Frequency (Hz)', log_scale=True, tag='PHASE_X')
+        dpg.add_plot_axis(dpg.mvYAxis, label='Phase shift (deg°)', tag='PHASE_Y')
+        dpg.set_axis_limits_auto(axis='PHASE_X')
+        dpg.set_axis_limits_auto(axis='PHASE_Y')
         dpg.add_plot_legend()
 
 dpg.create_viewport(title='HDS2202S Magnitude/Phase Bode Plotter', width=main_window_width, height=main_window_height, resizable=False, max_height=main_window_height, min_height=main_window_height, max_width=main_window_width, min_width=main_window_width)
@@ -618,6 +650,7 @@ while dpg.is_dearpygui_running():
     sample_delay_s = float(dpg.get_value(item='CODE_EXEC_PAUSE'))
     # plot parameters
     plot_win_disposition = str(dpg.get_value(item='PLOT_WIN_SETTING'))
+
     # keep updating plot sizes
     dpg.set_item_height(item='MAG_PLOT_GRAPH', height=dpg.get_item_height(item='MAG_PLOT_WIN') - 35)
     dpg.set_item_width(item='MAG_PLOT_GRAPH' , width=dpg.get_item_width(item='MAG_PLOT_WIN') - 17)
