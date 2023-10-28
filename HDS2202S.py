@@ -25,6 +25,7 @@ sample_modes = ['SAMPle', 'PEAK'] # SAMPle mode is preferred
 memory_depth_modes = ['4K', '8K']
 AWG_output_impedance_modes = ['ON', 'OFF']
 plot_win_settings = ['DearPyGui', 'MatPlotLib']
+drag_line_values = ['Drag Lines ON', 'Drag Lines OFF']
 
 # global system variables
 global channel_in
@@ -85,6 +86,17 @@ win_theme = ['Dark', 'Light']
 def switch_theme():
     dpg.bind_theme(dpg.get_value('WIN_THEME'))
 
+def set_drag_lines():
+    if dpg.get_value(item='DRAG_LINES_COMBO') == drag_line_values[1]:
+        dpg.configure_item(item='DRAG_LINE_MAG_X', show=False)
+        dpg.configure_item(item='DRAG_LINE_MAG_Y', show=False)
+        dpg.configure_item(item='DRAG_LINE_PHASE_X', show=False)
+        dpg.configure_item(item='DRAG_LINE_PHASE_Y', show=False)
+    else:
+        dpg.configure_item(item='DRAG_LINE_MAG_X', show=True)
+        dpg.configure_item(item='DRAG_LINE_MAG_Y', show=True)
+        dpg.configure_item(item='DRAG_LINE_PHASE_X', show=True)
+        dpg.configure_item(item='DRAG_LINE_PHASE_Y', show=True)
 # --- end Graphics settings --- -------------------------------------------------------
 
 def oscilloscope_query(cmd):
@@ -443,6 +455,8 @@ def post_processing():
         magnitude_spline = UnivariateSpline(raw_frequencies_range, gain_dB, k = 3, s = 0)
         dpg.add_line_series(x=x_points, y=magnitude_spline(x_points), parent='MAG_Y', tag='MAG_LINE', label='Interpolated waveform')
         dpg.add_scatter_series(x=raw_frequencies_range, y=gain_dB, parent='MAG_Y', tag='MAG_SCATTER', label='{} points per decade'.format(points_per_decade))
+        dpg.configure_item(item='DRAG_LINE_MAG_X', default_value=np.median(raw_frequencies_range))
+        dpg.configure_item(item='DRAG_LINE_MAG_Y', default_value=np.median(gain_dB))
         # fit all the axis
         dpg.set_axis_limits_auto(axis='MAG_Y')
         dpg.fit_axis_data(axis='MAG_Y')
@@ -452,6 +466,8 @@ def post_processing():
         phase_spline = UnivariateSpline(raw_frequencies_range, phase_degree, k = 3, s = len(raw_frequencies_range))
         dpg.add_line_series(x=x_points, y=phase_spline(x_points), parent='PHASE_Y', tag='PHASE_LINE', label='Interpolated waveform')
         dpg.add_scatter_series(x=raw_frequencies_range, y=phase_degree, parent='PHASE_Y', tag='PHASE_SCATTER', label='{} points per decade'.format(points_per_decade))
+        dpg.configure_item(item='DRAG_LINE_PHASE_X', default_value=np.median(raw_frequencies_range))
+        dpg.configure_item(item='DRAG_LINE_PHASE_Y', default_value=np.median(phase_degree))
         # fit all the axis
         dpg.set_axis_limits_auto(axis='PHASE_Y')
         dpg.fit_axis_data(axis='PHASE_Y')
@@ -620,6 +636,7 @@ with dpg.window(tag='main', width=setting_window_width , height=setting_window_h
     dpg.add_radio_button(tag='PLOT_WIN_SETTING', label='Plot Engine', items=plot_win_settings, default_value=plot_win_settings[0], pos=(75, 415))
     dpg.add_radio_button(tag='WIN_THEME', label='Window theme', items=win_theme, default_value=win_theme[1], callback=switch_theme)
     dpg.bind_theme(light_theme)
+    dpg.add_radio_button(tag='DRAG_LINES_COMBO', items=drag_line_values, default_value=drag_line_values[1], callback=set_drag_lines, pos=(180, 415))
     dpg.add_text('\nAdvanced settings:')
     dpg.add_input_int(tag='SPLINE_POINTS', label='Interpolating Spline points', min_value=1000, min_clamped=True, default_value=10000, width=100)
     dpg.add_input_float(tag='POINT_SCALE_COEFF', label='Point scale coefficient', min_value=0, min_clamped=True, default_value=5850, width=100)
@@ -638,15 +655,19 @@ with dpg.window(tag='main', width=setting_window_width , height=setting_window_h
     # dpg.add_button(tag='EXIT_PROG', label='Stop and Exit', callback=stop_exit)
 
 with dpg.window(tag='MAG_PLOT_WIN', height=plot_window_height, width=plot_window_width, pos=(setting_window_width, 0), no_close=True, no_collapse=True):
-    with dpg.plot(tag='MAG_PLOT_GRAPH', label='Magnitude Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True, anti_aliased=True, no_mouse_pos=False):
+    with dpg.plot(tag='MAG_PLOT_GRAPH', label='Magnitude Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=False, anti_aliased=True, no_mouse_pos=False):
         dpg.add_plot_axis(dpg.mvXAxis, label='Frequency (Hz)', log_scale=True, tag='MAG_X')
         dpg.add_plot_axis(dpg.mvYAxis, label='Gain (dB)', tag='MAG_Y')
+        dpg.add_drag_line(tag='DRAG_LINE_MAG_X', parent='MAG_PLOT_GRAPH', label="Frequency", color=[255, 255, 0, 255], default_value=0, thickness=2, show=False)
+        dpg.add_drag_line(tag='DRAG_LINE_MAG_Y', parent='MAG_PLOT_GRAPH', label="Gain dB", color=[255, 255, 0, 255], vertical=False, default_value=1, thickness=2, show=False)
         dpg.add_plot_legend()
         
 with dpg.window(tag='PHASE_PLOT_WIN', height=plot_window_height, width=plot_window_width, pos=(setting_window_width, plot_window_height), no_close=True, no_collapse=True):
-    with dpg.plot(tag='PHASE_PLOT_GRAPH', label='Phase Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=True, anti_aliased=True, no_mouse_pos=False):
+    with dpg.plot(tag='PHASE_PLOT_GRAPH', label='Phase Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=False, anti_aliased=True, no_mouse_pos=False):
         dpg.add_plot_axis(dpg.mvXAxis, label='Frequency (Hz)', log_scale=True, tag='PHASE_X')
         dpg.add_plot_axis(dpg.mvYAxis, label='Phase shift (deg°)', tag='PHASE_Y')
+        dpg.add_drag_line(tag='DRAG_LINE_PHASE_X', parent='PHASE_PLOT_GRAPH', label="Frequency", color=[255, 255, 0, 255], default_value=0, thickness=2, show=False)
+        dpg.add_drag_line(tag='DRAG_LINE_PHASE_Y', parent='PHASE_PLOT_GRAPH', label="Degrees", color=[255, 255, 0, 255], vertical=False, default_value=0, thickness=2, show=False)
         dpg.add_plot_legend()
 
 dpg.create_viewport(title='HDS2202S Magnitude/Phase Bode Plotter', width=main_window_width, height=main_window_height, resizable=False, max_height=main_window_height, min_height=main_window_height, max_width=main_window_width, min_width=main_window_width)
