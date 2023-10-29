@@ -1,0 +1,23 @@
+Install Python 3.11
+pip install virtualenv
+cd BodePlotter
+virtualenv bodeplotter-venv -p python311
+cd bodeplotter-venv\Scripts
+PS> ./Activate.ps1 (Set-ExecutionPolicy RemoteSigned from admin PS Shell)
+from now on all commands will be executed in (bodeplotter-venv)
+python -m pip install briefcase numpy dearpygui matplotlib Pyusb scipy
+cd ..
+briefcase new (GUI, select none [6])
+cd BodePlotter
+Modify the necessary config in pyproject.toml (add the python lib used in the code under windows dependencies)
+briefcase dev (for testing that all works)
+briefcase create
+briefcase build
+briefcase run (for testing that all works)
+briefcase package
+if in the future there are updates:
+	briefcase update
+	briefcase dev (for testing that all works)
+	briefcase build
+	briefcase run (for testing that all works)
+	briefcase package
