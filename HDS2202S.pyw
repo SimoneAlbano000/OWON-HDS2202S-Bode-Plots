@@ -80,18 +80,11 @@ win_theme = ['Dark', 'Light']
 def switch_theme():
     dpg.bind_theme(dpg.get_value('WIN_THEME'))
 
-def set_drag_lines():
-    if dpg.get_value(item='DRAG_LINES_COMBO') == drag_line_values[1]:
-        dpg.configure_item(item='DRAG_LINE_MAG_X', show=False)
-        dpg.configure_item(item='DRAG_LINE_MAG_Y', show=False)
-        dpg.configure_item(item='DRAG_LINE_PHASE_X', show=False)
-        dpg.configure_item(item='DRAG_LINE_PHASE_Y', show=False)
-    else:
-        dpg.configure_item(item='DRAG_LINE_MAG_X', show=True)
-        dpg.configure_item(item='DRAG_LINE_MAG_Y', show=True)
-        dpg.configure_item(item='DRAG_LINE_PHASE_X', show=True)
-        dpg.configure_item(item='DRAG_LINE_PHASE_Y', show=True)
 # --- end Graphics settings --- -------------------------------------------------------
+def print_to_terminal(data):
+    dpg.add_text(data, parent='terminal')
+    dpg.set_y_scroll(item='terminal', value=-1) # auto-scroll to the end of the window
+    dpg.focus_item(item='terminal')
 
 def oscilloscope_query(cmd):
     oscilloscope_OUT.write(cmd)
@@ -218,10 +211,10 @@ def search_oscilloscope():
     oscilloscope = usb.core.find(idVendor=0x5345, idProduct=0x1234)
     
     if oscilloscope is None:
-        print('HDS2202S not found, please try again...')
+        print_to_terminal('HDS2202S not found, please try again...')
         return
     else:
-        print('HDS2202S found!')
+        print_to_terminal('HDS2202S found!')
         oscilloscope.set_configuration()
         # get an endpoint instance
         config = oscilloscope.get_active_configuration()
@@ -245,60 +238,60 @@ def search_oscilloscope():
             usb.util.ENDPOINT_IN)
         assert oscilloscope_IN is not None
 
-        # print endpoint infomation for debug
-        # print(oscilloscope_IN)
-        # print(oscilloscope_OUT)
+        # print_to_terminal endpoint infomation for debug
+        # print_to_terminal(oscilloscope_IN)
+        # print_to_terminal(oscilloscope_OUT)
 
         # call the oscilloscope setup function
         setup_oscilloscope()
 
 def setup_oscilloscope():
     # general device config
-    print('\n --- Oscilloscope configurations --- \n')
-    print(oscilloscope_query('*IDN?') + '\n')
+    print_to_terminal('\n --- Oscilloscope configurations --- \n')
+    print_to_terminal(oscilloscope_query('*IDN?') + '\n')
     # set-up channels
     oscilloscope_query(':{CH}:DISPlay OFF'.format(CH = channel_out))
-    print('Channel out status: ' + oscilloscope_query(':{CH}:DISPlay?'.format(CH = channel_out)).upper())
+    print_to_terminal('Channel out status: ' + oscilloscope_query(':{CH}:DISPlay?'.format(CH = channel_out)).upper())
     oscilloscope_query(':{CH}:DISPlay OFF'.format(CH = channel_in))
-    print('Channel in status: ' + oscilloscope_query(':{CH}:DISPlay?'.format(CH = channel_in)).upper())
+    print_to_terminal('Channel in status: ' + oscilloscope_query(':{CH}:DISPlay?'.format(CH = channel_in)).upper())
     # set AC coupling
     oscilloscope_query(':{CH}:COUPling {data}'.format(CH = 'CH1', data = CH1_coupling))
-    print('Channel 1 coupling: ' + oscilloscope_query(':{CH}:COUPling?'.format(CH = 'CH1')).upper())
+    print_to_terminal('Channel 1 coupling: ' + oscilloscope_query(':{CH}:COUPling?'.format(CH = 'CH1')).upper())
     oscilloscope_query(':{CH}:COUPling {data}'.format(CH = 'CH2', data = CH2_coupling))
-    print('Channel 2 coupling: ' + oscilloscope_query(':{CH}:COUPling?'.format(CH = 'CH2')).upper())
+    print_to_terminal('Channel 2 coupling: ' + oscilloscope_query(':{CH}:COUPling?'.format(CH = 'CH2')).upper())
     # set attenuation mode
     oscilloscope_query(':{CH}:PROBe {data}'.format(CH = 'CH1', data = CH1_probe_attenuation_ratio))
-    print('Channel 1 probe attenuation ratio: ' + oscilloscope_query(':{CH}:PROBe?'.format(CH = 'CH1')).upper())
+    print_to_terminal('Channel 1 probe attenuation ratio: ' + oscilloscope_query(':{CH}:PROBe?'.format(CH = 'CH1')).upper())
     oscilloscope_query(':{CH}:PROBe {data}'.format(CH = 'CH2', data = CH2_probe_attenuation_ratio))
-    print('Channel 2 probe attenuation ratio: ' + oscilloscope_query(':{CH}:PROBe?'.format(CH = 'CH2')).upper())
+    print_to_terminal('Channel 2 probe attenuation ratio: ' + oscilloscope_query(':{CH}:PROBe?'.format(CH = 'CH2')).upper())
     # turn on frequency and amplitude pk-pk mesurements
     oscilloscope_query(':MEASurement:DISPlay ON')
     # set acquire mode
     oscilloscope_query(':ACQuire:MODE {}'.format(Sample_command))
-    print('Acquisition mode: ' + oscilloscope_query(':ACQuire:MODE?').upper())
+    print_to_terminal('Acquisition mode: ' + oscilloscope_query(':ACQuire:MODE?').upper())
     # set memory depth
     oscilloscope_query(':ACQuire:DEPMEM {}'.format(DEPMEM))
-    print('Memory depth: ' + oscilloscope_query(':ACQuire:DEPMEM?').upper())
+    print_to_terminal('Memory depth: ' + oscilloscope_query(':ACQuire:DEPMEM?').upper())
     # set the trigger to rising edge, VERY IMPORTANT!
 
     # setup the AWG
-    print('\n --- AWG configurations --- \n')
+    print_to_terminal('\n --- AWG configurations --- \n')
     # turn off the AWG
     oscilloscope_query(':CHANnel OFF')
-    print('Channel status: ' + oscilloscope_query(':CHANnel?').upper())
+    print_to_terminal('Channel status: ' + oscilloscope_query(':CHANnel?').upper())
     # set the output waveform: for bode plots the sine waveform is used
     oscilloscope_query(':FUNCtion SINE')
-    print('Output waveform: ' + oscilloscope_query(':FUNCtion?').upper())
+    print_to_terminal('Output waveform: ' + oscilloscope_query(':FUNCtion?').upper())
     # set the waveform amplitude
     oscilloscope_query(':FUNCtion:AMPLitude {}'.format(waveform_amplitude_V))
-    print('Waveform amplitude (pk-pk): ' + str(float(str(oscilloscope_query(':FUNCtion:AMPLitude?'))[0:8])) + 'V')
+    print_to_terminal('Waveform amplitude (pk-pk): ' + str(float(str(oscilloscope_query(':FUNCtion:AMPLitude?'))[0:8])) + 'V')
     # set output impedance
     oscilloscope_query(':FUNCtion:LOAD {}'.format(AWG_output_impedance))
-    print('High Output impedance?: ' + oscilloscope_query(':FUNCtion:LOAD?').upper() + ' Ω')
+    print_to_terminal('High Output impedance?: ' + oscilloscope_query(':FUNCtion:LOAD?').upper() + ' Ω')
     # set the waveform offset to zero
     oscilloscope_query(':FUNCtion:OFFSet 0')
-    print('Waveform offset: ' + str(float(str(oscilloscope_query(':FUNCtion:OFFSet?'))[0:8])) + 'V\n')
-    print('Now adjust both the vertical and horizontal scales before performing any mesurement...')
+    print_to_terminal('Waveform offset: ' + str(float(str(oscilloscope_query(':FUNCtion:OFFSet?'))[0:8])) + 'V\n')
+    print_to_terminal('Now adjust both the vertical and horizontal scales before performing any mesurement...')
     # turn on the device at correct initial range
     oscilloscope_write(':{CH}:DISPlay ON'.format(CH = 'CH1'))
     oscilloscope_write(':{CH}:DISPlay ON'.format(CH = 'CH2'))
@@ -438,9 +431,9 @@ def post_processing():
     for radiant_phase_value in range(0, len(raw_frequencies_range), 1):
         phase_degree.append(np.degrees(phase_radiant[radiant_phase_value]))
 
-    # print(raw_frequencies_range)
-    # print(gain_dB)
-    # print(phase_degree)
+    # print_to_terminal(raw_frequencies_range)
+    # print_to_terminal(gain_dB)
+    # print_to_terminal(phase_degree)
 
     # choose the disposition of the plots
     if plot_win_disposition == 'DearPyGui':
@@ -495,6 +488,18 @@ def post_processing():
         phase.legend(loc='upper right')
         figure.tight_layout()
         plot.show()
+
+def set_drag_lines():
+    if dpg.get_value(item='DRAG_LINES_COMBO') == drag_line_values[1]:
+        dpg.configure_item(item='DRAG_LINE_MAG_X', show=False)
+        dpg.configure_item(item='DRAG_LINE_MAG_Y', show=False)
+        dpg.configure_item(item='DRAG_LINE_PHASE_X', show=False)
+        dpg.configure_item(item='DRAG_LINE_PHASE_Y', show=False)
+    else:
+        dpg.configure_item(item='DRAG_LINE_MAG_X', show=True)
+        dpg.configure_item(item='DRAG_LINE_MAG_Y', show=True)
+        dpg.configure_item(item='DRAG_LINE_PHASE_X', show=True)
+        dpg.configure_item(item='DRAG_LINE_PHASE_Y', show=True)
 
 """
 def stop_exit():
@@ -632,7 +637,7 @@ def main():
         with dpg.theme_component(dpg.mvButton, enabled_state=False):
             dpg.add_theme_color(dpg.mvThemeCol_Text, [150, 150, 150])
 
-    with dpg.window(tag='main', width=setting_window_width , height=setting_window_height, no_resize=True, pos=(0, 0), no_move=True, no_close=True, no_collapse=True):
+    with dpg.window(tag='main', width=setting_window_width , height=setting_window_height-win_vertical_border, no_resize=True, pos=(0, win_vertical_border), no_move=True, no_close=True, no_collapse=True):
         dpg.add_text("Oscilloscope settings:")
         dpg.add_combo(tag='CH_IN', items=available_channels, label='Input Channel', default_value=available_channels[0], width=100)
         dpg.add_combo(tag='CH_OUT', items=available_channels, label='Output Channel', default_value=available_channels[1], width=100)
@@ -665,10 +670,13 @@ def main():
         dpg.add_input_text(tag='FREQ_POINT_VAL', default_value='0 Hz', readonly=True, width=100, scientific=True)
         dpg.add_input_text(tag='AMP_POINT_VAL', default_value='0 V', readonly=True, width=80, pos=(112, 688))
         dpg.add_input_text(tag='RAD_POINT_VAL', default_value='0 rad', readonly=True, width=80, pos=(196, 688))
-        dpg.add_text('\n')
-        dpg.add_button(tag='SEARCH_OSCILLOSCOPE', label='Search and Setup DSO', callback=search_oscilloscope)
-        dpg.add_button(tag='START_MEASURE', label='Start mesurements', callback=start_mesurement, enabled=False, pos=(161, 734))
+        dpg.add_button(tag='SEARCH_OSCILLOSCOPE', label='Search and Setup DSO', callback=search_oscilloscope, pos=(8, 715))
+        dpg.add_button(tag='START_MEASURE', label='Start mesurements', callback=start_mesurement, enabled=False, pos=(161, 715))
         # dpg.add_button(tag='EXIT_PROG', label='Stop and Exit', callback=stop_exit)
+        # dpg.add_button(tag='SAVE_PLOTS', label='Save plots', pos=(292, 715), callback='save_plots_func')
+
+    with dpg.window(tag='terminal', pos=(0, 0), collapsed=True, width=setting_window_width, height=main_window_height/2, label='Terminal', no_close=True):
+        pass
 
     with dpg.window(tag='MAG_PLOT_WIN', height=plot_window_height, width=plot_window_width, pos=(setting_window_width, 0), no_close=True, no_collapse=True):
         with dpg.plot(tag='MAG_PLOT_GRAPH', label='Magnitude Bode Plot', height=plot_window_height - 35, width=plot_window_width - 17, crosshairs=False, anti_aliased=True, no_mouse_pos=False):
@@ -690,7 +698,6 @@ def main():
 
     dpg.setup_dearpygui()
     dpg.show_viewport()
-
     # dpg.set_primary_window('main', True)
 
     while dpg.is_dearpygui_running():
@@ -736,8 +743,8 @@ def main():
         elif CH2_probe_attenuation_ratio == '10X':
             CH2_amplitude_scales = amplitude_scales_commands[:9]
             CH2_amplitude_scales = amplitude_scales_values[:9]
-        
-        # you can manually stop by using stop_dearpygui()
+
         dpg.render_dearpygui_frame()
     dpg.destroy_context()
 # --- end gui settings --- ----------------------------------------
+main()
