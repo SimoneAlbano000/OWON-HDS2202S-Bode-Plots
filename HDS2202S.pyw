@@ -20,6 +20,7 @@ memory_depth_modes = ['4K', '8K']
 AWG_output_impedance_modes = ['ON', 'OFF']
 plot_win_settings = ['DearPyGui', 'MatPlotLib']
 drag_line_values = ['Drag Lines ON', 'Drag Lines OFF']
+points_spacing = ['Linear', 'Logarithmic']
 
 # global system variables
 global channel_in
@@ -68,6 +69,7 @@ global oscilloscope_IN
 # --- start Graphics settings --- -----------------------------------------------------
 win_vertical_border = 19
 win_horizontal_border = 15
+items_standard_width = 100
 
 main_window_height = 800
 main_window_width = 1200
@@ -246,6 +248,8 @@ def search_oscilloscope():
         setup_oscilloscope()
 
 def setup_oscilloscope():
+    # open the terminal window
+    dpg.configure_item(item='terminal', collapsed=False)
     # general device config
     print_to_terminal('\n --- Oscilloscope configurations --- \n')
     print_to_terminal(oscilloscope_query('*IDN?') + '\n')
@@ -291,7 +295,7 @@ def setup_oscilloscope():
     # set the waveform offset to zero
     oscilloscope_query(':FUNCtion:OFFSet 0')
     print_to_terminal('Waveform offset: ' + str(float(str(oscilloscope_query(':FUNCtion:OFFSet?'))[0:8])) + 'V\n')
-    print_to_terminal('Now adjust both the vertical and horizontal scales before performing any mesurement...')
+    print_to_terminal('Now adjust both the vertical and horizontal scales\nbefore performing any mesurement...')
     # turn on the device at correct initial range
     oscilloscope_write(':{CH}:DISPlay ON'.format(CH = 'CH1'))
     oscilloscope_write(':{CH}:DISPlay ON'.format(CH = 'CH2'))
@@ -301,6 +305,8 @@ def setup_oscilloscope():
     dpg.configure_item(item='START_MEASURE', enabled=True)
 
 def start_mesurement():
+    # show the terminal window
+    dpg.configure_item(item='terminal', collapsed=False)
     # clear all the plots
     try:
         dpg.delete_item(item='MAG_SCATTER')
@@ -321,6 +327,7 @@ def start_mesurement():
     dpg.configure_item(item='AWG_OUT_VOLTAGE', enabled=False)
     dpg.configure_item(item='HIGH_Z', enabled=False)
     dpg.configure_item(item='POINTS_X_DEC', enabled=False)
+    dpg.configure_item(item='POINTS_SPACING', enabled=False)
     dpg.configure_item(item='SPLINE_POINTS', enabled=False)
     dpg.configure_item(item='START_DEC', enabled=False)
     dpg.configure_item(item='STOP_DEC', enabled=False)
@@ -347,13 +354,22 @@ def start_mesurement():
     time.sleep(sample_delay_s*2)
                
     # generate the complete test frequency range
-    for indx in range(start_decade, stop_decade, 1):
-        current_frequency_range = np.linspace(decades_list[indx], decades_list[indx + 1], points_per_decade)
-        for indy in current_frequency_range:
-            raw_frequencies_range.append(indy)
-        # remove the last, duplicated value
-        if indx != (stop_decade - 1):
-            raw_frequencies_range.pop()
+    if dpg.get_value(item='POINTS_SPACING') == points_spacing[0]:
+        for indx in range(start_decade, stop_decade, 1):
+            current_frequency_range = np.linspace(start=decades_list[indx], stop=decades_list[indx + 1], num=points_per_decade)
+            for indy in current_frequency_range:
+                raw_frequencies_range.append(indy)
+            # remove the last, duplicated value
+            if indx != (stop_decade - 1):
+                raw_frequencies_range.pop()
+    else:
+        for indx in range(start_decade, stop_decade, 1):
+            current_frequency_range = np.geomspace(start=decades_list[indx], stop=decades_list[indx + 1], num=points_per_decade, endpoint=True)
+            for indy in current_frequency_range:
+                raw_frequencies_range.append(indy)
+            # remove the last, duplicated value
+            if indx != (stop_decade - 1):
+                raw_frequencies_range.pop()
 
     for index, frequency in enumerate(raw_frequencies_range):
         # ask for the current vertical and horizontal scale (only the first time)
@@ -381,10 +397,10 @@ def start_mesurement():
             Vpkpk = (Vpkpk_from_curve + Vpkpk_measured)/2
         gain_linear.append(Vpkpk)
         phase_radiant.append((fitted_waveform_param["phase"]))
-        # display the current calues in the gui
-        dpg.set_value(item='FREQ_POINT_VAL', value=(str(round(frequency, 2)) + ' Hz'))
-        dpg.set_value(item='AMP_POINT_VAL', value=(str(round(Vpkpk, 3)) + ' V'))
-        dpg.set_value(item='RAD_POINT_VAL', value=(str(round(fitted_waveform_param["phase"], 3)) + ' rad'))
+        # print the current calues in the gui
+        print_to_terminal('Frequency: ' + str(round(frequency, 2)) + ' Hz\n')
+        print_to_terminal('Voltage: ' + str(round(Vpkpk, 3)) + ' V\n')
+        print_to_terminal('Phase: ' + str(round(fitted_waveform_param["phase"], 3)) + ' rad\n\n')
         # adjust the vertical and horizontal scale based on previous waveform characteristic
         closest_v_scale_index = amplitude_scales_values.index(min(amplitude_scales_values, key=lambda x:abs(x-(Vpkpk*vertical_scaling_factor))))
         set_amplitude_scale(channel_out, amplitude_scales_commands[closest_v_scale_index])
@@ -404,6 +420,7 @@ def start_mesurement():
     dpg.configure_item(item='AWG_OUT_VOLTAGE', enabled=True)
     dpg.configure_item(item='HIGH_Z', enabled=True)
     dpg.configure_item(item='POINTS_X_DEC', enabled=True)
+    dpg.configure_item(item='POINTS_SPACING', enabled=True)
     dpg.configure_item(item='SPLINE_POINTS', enabled=True)
     dpg.configure_item(item='START_DEC', enabled=True)
     dpg.configure_item(item='STOP_DEC', enabled=True)
@@ -415,10 +432,7 @@ def start_mesurement():
     dpg.configure_item(item='PLOT_WIN_SETTING', enabled=True)
     dpg.configure_item(item='WIN_THEME', enabled=True)
     dpg.configure_item(item='SEARCH_OSCILLOSCOPE', enabled=True)
-    # clear the current value text boxes
-    dpg.set_value(item='FREQ_POINT_VAL', value='0 Hz')
-    dpg.set_value(item='AMP_POINT_VAL', value='0 V')
-    dpg.set_value(item='RAD_POINT_VAL', value='0 rad')
+    dpg.configure_item(item='terminal', collapsed=True)
     # start post-processing
     post_processing()
 
@@ -639,43 +653,48 @@ def main():
 
     with dpg.window(tag='main', width=setting_window_width , height=setting_window_height-win_vertical_border, no_resize=True, pos=(0, win_vertical_border), no_move=True, no_close=True, no_collapse=True):
         dpg.add_text("Oscilloscope settings:")
-        dpg.add_combo(tag='CH_IN', items=available_channels, label='Input Channel', default_value=available_channels[0], width=100)
-        dpg.add_combo(tag='CH_OUT', items=available_channels, label='Output Channel', default_value=available_channels[1], width=100)
-        dpg.add_combo(tag='CH1_ATTENUATION_RATIO', items=probes_attenuation_ratio, label='Channel 1 Probe attenuation ratio', default_value=probes_attenuation_ratio[1], width=100)
-        dpg.add_combo(tag='CH2_ATTENUATION_RATIO', items=probes_attenuation_ratio, label='Channel 2 Probe attenuation ratio', default_value=probes_attenuation_ratio[1], width=100)
-        dpg.add_combo(tag='CH1_COUPLING_MODE', items=channels_coupling_mode, label='Channel 1 Coupling mode', default_value=channels_coupling_mode[0], width=100)
-        dpg.add_combo(tag='CH2_COUPLING_MODE', items=channels_coupling_mode, label='Channel 2 Coupling mode', default_value=channels_coupling_mode[0], width=100)
-        dpg.add_combo(tag='SAMPL_MODE', items=sample_modes, label='Oscilloscope Sample mode', default_value=sample_modes[0], width=100, )
-        dpg.add_combo(tag='DEPMEM', items=memory_depth_modes, label='Oscilloscope Memory depth', default_value=memory_depth_modes[1], width=100)
-        dpg.add_input_float(tag='AWG_OUT_VOLTAGE', label='AWG pk-pk output voltage', min_value=0, max_value=5, min_clamped=True, max_clamped=True, default_value=1, width=100)
-        dpg.add_combo(tag='HIGH_Z', items=AWG_output_impedance_modes, label='AWG High output impedance', default_value=AWG_output_impedance_modes[0], width=100)
+        dpg.add_combo(tag='CH_IN', items=available_channels, label='Input Channel', default_value=available_channels[0], width=items_standard_width)
+        dpg.add_combo(tag='CH_OUT', items=available_channels, label='Output Channel', default_value=available_channels[1], width=items_standard_width)
+        dpg.add_combo(tag='CH1_ATTENUATION_RATIO', items=probes_attenuation_ratio, label='Channel 1 Probe attenuation ratio', default_value=probes_attenuation_ratio[1], width=items_standard_width)
+        dpg.add_combo(tag='CH2_ATTENUATION_RATIO', items=probes_attenuation_ratio, label='Channel 2 Probe attenuation ratio', default_value=probes_attenuation_ratio[1], width=items_standard_width)
+        dpg.add_combo(tag='CH1_COUPLING_MODE', items=channels_coupling_mode, label='Channel 1 Coupling mode', default_value=channels_coupling_mode[0], width=items_standard_width)
+        dpg.add_combo(tag='CH2_COUPLING_MODE', items=channels_coupling_mode, label='Channel 2 Coupling mode', default_value=channels_coupling_mode[0], width=items_standard_width)
+        dpg.add_combo(tag='SAMPL_MODE', items=sample_modes, label='Oscilloscope Sample mode', default_value=sample_modes[0], width=items_standard_width, )
+        dpg.add_combo(tag='DEPMEM', items=memory_depth_modes, label='Oscilloscope Memory depth', default_value=memory_depth_modes[1], width=items_standard_width)
+        dpg.add_input_float(tag='AWG_OUT_VOLTAGE', label='AWG pk-pk output voltage', min_value=0, max_value=5, min_clamped=True, max_clamped=True, default_value=1, width=items_standard_width)
+        dpg.add_combo(tag='HIGH_Z', items=AWG_output_impedance_modes, label='AWG High output impedance', default_value=AWG_output_impedance_modes[0], width=items_standard_width)
         dpg.add_text('High output impedance = OFF -> Z_out = 50 Ohm\nThe AWG pk-pk output voltage will be doubled!')
-        dpg.add_input_int(tag='POINTS_X_DEC', label='Points per decade', min_value=0, min_clamped=True, default_value=10, width=100)
-        dpg.add_combo(tag='START_DEC', items=decades_list_string, label='Start frquency', default_value=decades_list_string[3], width=100)
-        dpg.add_combo(tag='STOP_DEC', items=decades_list_string, label='Stop frquency', default_value=decades_list_string[7], width=100)
+        
+        dpg.add_text('\nPoints/decade   Points spacing')
+        dpg.add_input_int(tag='POINTS_X_DEC', min_value=0, min_clamped=True, default_value=10, width=items_standard_width)
+        dpg.add_combo(tag='POINTS_SPACING', items=points_spacing, default_value=points_spacing[0], width=120, pos=(items_standard_width + win_horizontal_border, 346))
+        dpg.add_combo(tag='START_DEC', items=decades_list_string, label=' Start frquency', default_value=decades_list_string[3], width=items_standard_width)
+        dpg.add_combo(tag='STOP_DEC', items=decades_list_string, label=' Stop frquency', default_value=decades_list_string[7], width=items_standard_width)
+        
         dpg.add_text('\nGraphics setting:')
-        dpg.add_radio_button(tag='PLOT_WIN_SETTING', label='Plot Engine', items=plot_win_settings, default_value=plot_win_settings[0], pos=(75, 415))
         dpg.add_radio_button(tag='WIN_THEME', label='Window theme', items=win_theme, default_value=win_theme[1], callback=switch_theme)
         dpg.bind_theme(light_theme)
-        dpg.add_radio_button(tag='DRAG_LINES_COMBO', items=drag_line_values, default_value=drag_line_values[1], callback=set_drag_lines, pos=(180, 415))
+        dpg.add_radio_button(tag='PLOT_WIN_SETTING', label='Plot Engine', items=plot_win_settings, default_value=plot_win_settings[0], pos=(75, 448))
+        dpg.add_radio_button(tag='DRAG_LINES_COMBO', items=drag_line_values, default_value=drag_line_values[1], callback=set_drag_lines, pos=(180, 448))
+        
         dpg.add_text('\nAdvanced settings:')
-        dpg.add_input_int(tag='SPLINE_POINTS', label='Interpolating Spline points', min_value=1000, min_clamped=True, default_value=10000, width=100)
-        dpg.add_input_float(tag='POINT_SCALE_COEFF', label='Point scale coefficient', min_value=0, min_clamped=True, default_value=5850, width=100)
-        dpg.add_input_float(tag='V_SCALE_COEFF', label='Vertical scale calibration coeff.', min_value=0, min_clamped=True, default_value=0.33, width=100)
-        dpg.add_input_float(tag='H_SCALE_COEFF', label='Horizontal scale calibration coeff.', min_value=0, min_clamped=True, default_value=0.25, width=100)
-        dpg.add_input_float(tag='OSCILL_TIMEOUT', label='Oscilloscope reading timeout (ms)', min_value=0, min_clamped=True, default_value=300, width=100)
-        dpg.add_input_float(tag='CODE_EXEC_PAUSE', label='Commands execution delay (s)', min_value=0, min_clamped=True, default_value=0.250, width=100)
-        dpg.add_text('\nPoint-wise mesurement result:')
-        dpg.add_text('Frequency      Amplitude   Phase')
-        dpg.add_input_text(tag='FREQ_POINT_VAL', default_value='0 Hz', readonly=True, width=100, scientific=True)
-        dpg.add_input_text(tag='AMP_POINT_VAL', default_value='0 V', readonly=True, width=80, pos=(112, 688))
-        dpg.add_input_text(tag='RAD_POINT_VAL', default_value='0 rad', readonly=True, width=80, pos=(196, 688))
+        dpg.add_input_int(tag='SPLINE_POINTS', label='Interpolating Spline points', min_value=1000, min_clamped=True, default_value=10000, width=items_standard_width)
+        dpg.add_input_float(tag='POINT_SCALE_COEFF', label='Point scale coefficient', min_value=0, min_clamped=True, default_value=5850, width=items_standard_width)
+        dpg.add_input_float(tag='V_SCALE_COEFF', label='Vertical scale calibration coeff.', min_value=0, min_clamped=True, default_value=0.33, width=items_standard_width)
+        dpg.add_input_float(tag='H_SCALE_COEFF', label='Horizontal scale calibration coeff.', min_value=0, min_clamped=True, default_value=0.25, width=items_standard_width)
+        dpg.add_input_float(tag='OSCILL_TIMEOUT', label='Oscilloscope reading timeout (ms)', min_value=0, min_clamped=True, default_value=300, width=items_standard_width)
+        dpg.add_input_float(tag='CODE_EXEC_PAUSE', label='Commands execution delay (s)', min_value=0, min_clamped=True, default_value=0.250, width=items_standard_width)
+        # dpg.add_text('\nPoint-wise mesurement result:')
+        # dpg.add_text('Frequency      Amplitude   Phase')
+        # dpg.add_input_text(tag='FREQ_POINT_VAL', default_value='0 Hz', readonly=True, width=items_standard_width, scientific=True)
+        # dpg.add_input_text(tag='AMP_POINT_VAL', default_value='0 V', readonly=True, width=80, pos=(112, 688))
+        # dpg.add_input_text(tag='RAD_POINT_VAL', default_value='0 rad', readonly=True, width=80, pos=(196, 688))
         dpg.add_button(tag='SEARCH_OSCILLOSCOPE', label='Search and Setup DSO', callback=search_oscilloscope, pos=(8, 715))
         dpg.add_button(tag='START_MEASURE', label='Start mesurements', callback=start_mesurement, enabled=False, pos=(161, 715))
         # dpg.add_button(tag='EXIT_PROG', label='Stop and Exit', callback=stop_exit)
         # dpg.add_button(tag='SAVE_PLOTS', label='Save plots', pos=(292, 715), callback='save_plots_func')
 
-    with dpg.window(tag='terminal', pos=(0, 0), collapsed=True, width=setting_window_width, height=main_window_height/2, label='Terminal', no_close=True):
+    with dpg.window(tag='terminal', pos=(0, 0), collapsed=True, width=setting_window_width, height=main_window_height-75, label='Terminal', no_close=True):
         pass
 
     with dpg.window(tag='MAG_PLOT_WIN', height=plot_window_height, width=plot_window_width, pos=(setting_window_width, 0), no_close=True, no_collapse=True):
