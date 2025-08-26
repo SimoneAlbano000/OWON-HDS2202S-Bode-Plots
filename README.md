@@ -8,7 +8,7 @@ pip install pyusb numpy matplotlib scipy dearpygui
 ## Utility usage and oscilloscope setup
 - Connect the oscilloscope to the PC using the included usb cable.
 - Set the oscilloscope interface to HID in order to enable the SCPI protocol.
-- Connect all the probes to the two input of the oscilloscope and one connector to the AWG output.
+- Connect both probes to the two input of the oscilloscope and one connector to the AWG output.
 - After launching the utility, make sure all the oscilloscope and AWG settings match with the one
   reported by the instrument (specially the correct probe attenuation switch).
 - Before the first measurement, adjust both the vertical and horizontal scale in order to have
@@ -17,13 +17,13 @@ pip install pyusb numpy matplotlib scipy dearpygui
 ## Some examples of common Transfer Functions:
 
 # RC Low Pass filter:
-The value of the component are R = 470Ω and C = 0.1μF. 
+The values of the components are R = 470Ω and C = 0.1μF. 
 The theoretical pole frequency is given by the formula: $`f_{p} =\frac{1}{2\pi RC} = 3.386kHz`$.
 
 ![BodePlot_low-pass-filter-470ohm-0 1uF_1X_1X_100Hz-1MHz](https://github.com/SimoneAlbano000/OWON-HDS2202S-Bode-Plots/assets/36369471/9b57cb8c-e8a0-4f9c-8df7-39931c7174d0)
 
 # RC High Pass filter:
-The value of the component are R = 470Ω and C = 0.1μF. 
+The values of the components are R = 470Ω and C = 0.1μF. 
 The theoretical pole frequency is given by the formula: $`f_{p} =\frac{1}{2\pi RC} = 3.386kHz`$.
 
 ![BodePlot_high-pass-filter-470ohm-0 1uF_1X_1X_100Hz-1MHz](https://github.com/SimoneAlbano000/OWON-HDS2202S-Bode-Plots/assets/36369471/dc13d212-908a-488a-bada-2cbe9bd00fc5)
